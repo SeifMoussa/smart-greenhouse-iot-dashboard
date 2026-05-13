@@ -6,6 +6,5 @@ coverage/
 .cache/
 Dockerfile
 .dockerignore
-nginx.conf
 README.md
 *.log
