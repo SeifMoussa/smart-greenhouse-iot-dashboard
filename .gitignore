@@ -1,0 +1,146 @@
+# =========================================================
+# Python
+# =========================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+.cache
+nosetests.xml
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+
+# =========================================================
+# Node / Frontend
+# =========================================================
+node_modules/
+.pnp.*
+.npm
+.yarn-integrity
+.eslintcache
+.parcel-cache
+
+# Vite / build output
+dist/
+dist-ssr/
+*.local
+
+# =========================================================
+# Environment / secrets
+# =========================================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+firmware/**/secrets.h
+
+# =========================================================
+# Database (SQLite)
+# =========================================================
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+data/
+backend/data/
+
+# =========================================================
+# Logs
+# =========================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================================================
+# OS files
+# =========================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# =========================================================
+# IDE / editor
+# =========================================================
+.idea/
+.vscode/*
+!.vscode/settings.json.example
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# =========================================================
+# Arduino / PlatformIO
+# =========================================================
+.pio/
+.pioenvs/
+.piolibdeps/
+firmware/**/.pio/
+firmware/**/build/
+
+# =========================================================
+# Docker
+# =========================================================
+.docker/
+
+# =========================================================
+# Misc
+# =========================================================
+*.bak
+*.tmp
+*.temp
+.cache/
+
+# Claude Code local settings
+.claude/
