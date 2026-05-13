@@ -28,14 +28,6 @@ This repository is an end-to-end IoT system built end-to-end by one engineer. It
 
 ---
 
-## Screenshots
-
-> **Placeholder.** Real screenshots and a short demo GIF will be captured after the live Docker runtime verification (see [`scripts/verify-docker.sh`](scripts/verify-docker.sh)). I do not commit fabricated UI screenshots.
->
-> Suggested captures: `screenshots/dashboard-light.png`, `screenshots/dashboard-dark.png`, `screenshots/alerts.png`, `screenshots/demo.gif`. They will be referenced here once produced.
-
----
-
 ## Features
 
 - **Live readings** for temperature, humidity, soil moisture, and light — value, unit, last-updated relative time, and an up / down / flat trend indicator per tile.
