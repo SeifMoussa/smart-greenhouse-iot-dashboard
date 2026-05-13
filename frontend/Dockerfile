@@ -26,7 +26,7 @@ COPY src ./src
 RUN npm run build
 
 # ---------- Stage 2: serve ----------
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.29-alpine AS runtime
 
 # Replace default config with our SPA-friendly one.
 COPY nginx.conf /etc/nginx/conf.d/default.conf
