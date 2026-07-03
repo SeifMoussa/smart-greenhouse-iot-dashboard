@@ -7,7 +7,7 @@ name = "greenhouse"
 version = "0.1.0"
 description = "Smart Greenhouse IoT Dashboard — FastAPI backend"
 requires-python = ">=3.11"
-authors = [{ name = "Seif Mansour" }]
+authors = [{ name = "Seif Hegazy" }]
 license = { text = "MIT" }
 keywords = ["iot", "fastapi", "greenhouse", "websocket", "portfolio"]
 classifiers = [
