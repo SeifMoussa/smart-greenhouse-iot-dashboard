@@ -148,21 +148,30 @@ def check_api_endpoints() -> list[str]:
         return []
 
     app = create_app()
+    # OpenAPI is FastAPI's public representation of the resolved REST route
+    # table.  Reading ``app.routes`` directly is no longer sufficient because
+    # FastAPI 0.139+ stores included routers as lazy wrapper objects.
     real_routes: set[str] = set()
-    for route in app.routes:
-        path = getattr(route, "path", None)
-        if not path:
-            continue
-        if path in {"/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"}:
-            continue
-        methods = getattr(route, "methods", None)
-        if methods:
-            for method in methods:
-                if method in {"HEAD", "OPTIONS"}:
-                    continue
+    for path, operations in app.openapi()["paths"].items():
+        for method in operations:
+            method = method.upper()
+            if method in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
                 real_routes.add(f"{method} {path}")
-        elif path == "/ws":
-            real_routes.add(f"WS {path}")
+
+    # WebSocket routes are intentionally absent from OpenAPI.  Included-router
+    # wrappers expose their source router, so walk those recursively while
+    # remaining compatible with FastAPI versions that flatten ``app.routes``.
+    def collect_websocket_routes(routes: object) -> None:
+        for route in routes:  # type: ignore[union-attr]
+            nested_router = getattr(route, "original_router", None)
+            if nested_router is not None:
+                collect_websocket_routes(nested_router.routes)
+                continue
+            path = getattr(route, "path", None)
+            if path and getattr(route, "methods", None) is None:
+                real_routes.add(f"WS {path}")
+
+    collect_websocket_routes(app.routes)
 
     # Documented endpoints are written in API.md as lines like
     # "#### `POST /api/readings` — …" — grep those out.
