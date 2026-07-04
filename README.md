@@ -15,6 +15,16 @@
 
 ---
 
+## Why I built this
+
+I wanted one project that forced the browser, API, realtime channel, and device edge to agree on the same data model. The React dashboard is only useful if the FastAPI backend can accept telemetry, persist it, evaluate thresholds, and push the resulting state over WebSocket without making the UI guess. Starting with a simulator kept that flow testable before involving an ESP32, while the optional firmware made the IoT control scope concrete rather than just a dashboard mockup.
+
+## What was harder than expected
+
+The WebSocket path had more edge cases than the REST endpoints. Readings, alerts, and actuator changes can arrive while the dashboard is reconnecting, so the frontend hook needs backoff and the backend needs bounded connection accounting and predictable event types. Keeping simulator payloads, ESP32 payloads, API schemas, and React types aligned also exposed small documentation mismatches. The docs consistency check now compares links, commands, npm scripts, and documented routes with the repository so those fixes stay fixed.
+
+---
+
 ## What this project demonstrates
 
 This repository is an end-to-end IoT system built end-to-end by one engineer. It exercises a recruiter-relevant slice of full-stack and cybersecurity-adjacent skills:
@@ -280,10 +290,43 @@ smart-greenhouse-iot-dashboard/
 ## Known limitations
 
 - **Docker runtime verification pending.** Implementation is complete and config-validated; the live `docker compose up` must be run on a machine with normal container-registry access. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
-- **Lab-only scope.** No HTTPS, no production-grade authentication, SQLite (single-tenant), default CORS narrowed to `localhost:5173`.
+- **Lab telemetry.** The simulator is the default data source, and the optional ESP32 sketch demonstrates a single-node integration rather than production hardware at scale.
+- **Portfolio/lab scope.** This is not a commercial greenhouse platform. It has no enterprise device enrollment, fleet inventory, certificate rotation, remote firmware management, or per-device authorization.
+- **Limited deployment hardening.** No HTTPS termination, production secrets service, distributed event bus, high-availability database, backup policy, or operational monitoring is included. SQLite and the in-process WebSocket event bus are intentionally single-instance choices.
 - **Frontend bundle is one 583 kB chunk.** Recharts is the bulk of it; `manualChunks` splitting is a future improvement.
-- **5 dev-only npm audit advisories** documented in [`TESTING_REPORT.md`](TESTING_REPORT.md). They affect the Vite dev server only and have no production-runtime impact.
+- **Frontend dependency advisories.** `npm audit` reports findings in the development toolchain; they need compatibility review rather than an automatic force-upgrade.
 - **No E2E browser tests yet.** Coverage is unit + component + hook level on the frontend.
+
+---
+
+## What I would improve next
+
+I would give each ESP32 its own identity and credential, then move telemetry fan-out from the in-process event bus to a broker so multiple backend instances can share device state. On the dashboard side, I would add a browser-level test that follows one reading from ingestion through the WebSocket update to the chart and alert panel. A hardened deployment example with TLS, managed persistence, secrets injection, and basic metrics would make the Docker setup more representative without pretending it is already an operations platform.
+
+## How to verify it works
+
+Install both development stacks, then run the repository's backend, frontend, build, and documentation checks:
+
+```bash
+make install
+make test-backend
+make test-frontend
+make lint
+make format-check
+make typecheck
+make build
+python scripts/check-docs.py
+```
+
+For the full simulated telemetry flow on a Docker-capable machine:
+
+```bash
+docker compose up --build
+./scripts/verify-docker.sh
+docker compose down
+```
+
+The Docker commands exercise the React dashboard, FastAPI API, simulator, and WebSocket flow together. They are a lab verification path, not evidence of production deployment readiness.
 
 ---
 
