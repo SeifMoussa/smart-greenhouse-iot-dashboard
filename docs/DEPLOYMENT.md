@@ -2,7 +2,7 @@
 
 This document covers running the project locally for development and bringing the full stack up via Docker Compose.
 
-> **Docker runtime-verification status.** The Docker setup is implemented and config-validated. End-to-end `docker compose up` was **not** run in the sandbox used to author Phase 5 because the sandbox blocks container-registry egress (Docker Hub, GHCR, public.ecr.aws all return HTTP 403). Runtime verification must be performed on a machine with normal container-registry access. A self-contained automated verifier is committed at [`scripts/verify-docker.sh`](../scripts/verify-docker.sh).
+> **Docker runtime-verification status.** The Docker setup is implemented and config-validated. End-to-end `docker compose up` was **not** run in the authoring sandbox because it blocks container-registry egress (Docker Hub, GHCR, public.ecr.aws all return HTTP 403). Runtime verification must be performed on a machine with normal container-registry access. A self-contained automated verifier is committed at [`scripts/verify-docker.sh`](../scripts/verify-docker.sh).
 
 ---
 
@@ -291,7 +291,7 @@ docker compose cp backend:/app/data/greenhouse.db ./greenhouse.db.backup
 
 ### `docker compose build` fails at the first BuildKit step with HTTP 403
 
-- The machine you're on cannot reach `registry-1.docker.io`. The sandbox that authored Phase 5 hit exactly this — confirm with `curl -I https://registry-1.docker.io/v2/`. Move to a machine with normal registry access.
+- The machine you're on cannot reach `registry-1.docker.io`. The authoring sandbox hit exactly this — confirm with `curl -I https://registry-1.docker.io/v2/`. Move to a machine with normal registry access.
 
 ### `pytest` fails with `ModuleNotFoundError: No module named 'greenhouse'`
 
@@ -302,7 +302,7 @@ docker compose cp backend:/app/data/greenhouse.db ./greenhouse.db.backup
 
 ### `npm test` hangs forever
 
-- Check that no test is using `waitFor` while `vi.useFakeTimers()` is active. The known case of this was fixed in Phase 4; if you see a regression, prefer direct synchronous assertions in fake-timer tests.
+- Check that no test is using `waitFor` while `vi.useFakeTimers()` is active. The known case is fixed; if you see a regression, prefer direct synchronous assertions in fake-timer tests.
 
 ---
 

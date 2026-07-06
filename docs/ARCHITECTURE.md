@@ -182,11 +182,11 @@ Notes:
 | **Vite 5 + Vitest 2 (not v6 / v3)** | Stable API; aligns with current ecosystem docs | 5 dev-only npm audit advisories (dev-server-only); accepted with documented rationale |
 | **Same image for backend + simulator** | One Docker build, one set of layers cached, one place to install Python deps | Slightly larger simulator image (it carries FastAPI/uvicorn it doesn't need) |
 | **No reverse proxy in front of backend** | Simpler dev experience; browser talks straight to `:8000` | CORS must be open for the dashboard origin; production would prefer single-origin |
-| **No screenshots committed in Phase 6** | I do not commit fabricated UI captures | Real screenshots wait for Docker runtime verification |
+| **No screenshots committed** | I do not commit fabricated UI captures | Real screenshots wait for Docker runtime verification |
 
 ---
 
-## 7. Future improvements (out of Phase 6 scope)
+## 7. Future improvements (outside the current scope)
 
 - Replace SQLite with Postgres + Alembic migrations
 - Replace in-process bus with Redis pub/sub so multiple backend instances can broadcast

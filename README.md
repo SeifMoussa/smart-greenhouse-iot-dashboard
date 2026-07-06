@@ -34,7 +34,7 @@ This repository is an end-to-end IoT system built end-to-end by one engineer. It
 - **Testing discipline** — 77 backend pytest tests at 95 % coverage, 27 frontend Vitest tests. Every test in this repo was actually run; nothing in the testing report is fabricated.
 - **DevSecOps** — Docker Compose three-service stack, multi-stage Dockerfiles, non-root containers, healthchecks, environment-driven configuration, secret-free defaults.
 - **Cybersecurity awareness** — CORS hardened, ingest rate limited, parameterized queries, optional API-key gating on writes, sanitized download filenames, lab-only disclaimer, npm-audit advisory triaged with documented rationale.
-- **Engineering process** — every phase delivered against a written specification, with phase-gated CI-grade quality checks (lint, format, typecheck, tests, build) run before declaring complete.
+- **Engineering process** — development follows written specifications, with CI-grade quality checks (lint, format, typecheck, tests, build) run before work is declared complete.
 
 ---
 
@@ -61,7 +61,7 @@ This repository is an end-to-end IoT system built end-to-end by one engineer. It
 | Realtime | FastAPI native WebSocket, in-process async pub/sub event bus |
 | Simulator | httpx, bounded random walk, dependency-injectable HTTP client and sleep |
 | Firmware (optional) | ESP32 + Arduino (DHT22 + analog soil moisture) |
-| Tooling | Docker Compose, Make, Ruff (lint + format), Pytest (+ pytest-asyncio + coverage), ESLint 9 flat config, Prettier 3, Vitest 2, Testing Library, GitHub Actions (Phase 7) |
+| Tooling | Docker Compose, Make, Ruff (lint + format), Pytest (+ pytest-asyncio + coverage), ESLint 9 flat config, Prettier 3, Vitest 2, Testing Library, GitHub Actions |
 
 ---
 
@@ -255,7 +255,7 @@ smart-greenhouse-iot-dashboard/
 │   ├── package.json
 │   ├── Dockerfile              Multi-stage Node → nginx alpine
 │   └── nginx.conf              SPA fallback, cache, /healthz
-├── firmware/greenhouse_esp32/  Optional ESP32 sketch (Phase 6+)
+├── firmware/greenhouse_esp32/  Optional ESP32 device-integration sketch
 ├── docs/                       Architecture, API, Hardware, Deployment, Data Model
 ├── examples/                   Runnable command recipes
 ├── scripts/verify-docker.sh    End-to-end Docker smoke test
