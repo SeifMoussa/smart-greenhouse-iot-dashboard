@@ -16,8 +16,8 @@ The script returns non-zero if it finds any of the following:
   by the running backend (this requires being able to import the
   backend; skipped with a warning if the import fails).
 
-This is a self-contained, dependency-free script aimed at CI parity with
-Phase 6's ad-hoc checks. It uses only the Python standard library.
+This is a self-contained, dependency-free script that replaces the ad-hoc
+manual checks I used to run by hand. It uses only the Python standard library.
 """
 
 from __future__ import annotations
@@ -39,7 +39,6 @@ DOCS_TO_CHECK = (
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "TESTING_REPORT.md",
-    "PROJECT_COMPLETION_CHECKLIST.md",
     "docs/ARCHITECTURE.md",
     "docs/API.md",
     "docs/DEPLOYMENT.md",

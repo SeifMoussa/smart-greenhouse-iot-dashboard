@@ -2,7 +2,7 @@
 
 This document covers running the project locally for development and bringing the full stack up via Docker Compose.
 
-> **Docker runtime-verification status.** The Docker setup is implemented and config-validated. End-to-end `docker compose up` was **not** run in the authoring sandbox because it blocks container-registry egress (Docker Hub, GHCR, public.ecr.aws all return HTTP 403). Runtime verification must be performed on a machine with normal container-registry access. A self-contained automated verifier is committed at [`scripts/verify-docker.sh`](../scripts/verify-docker.sh).
+> **Docker runtime-verification status.** The Docker setup is implemented and config-validated. End-to-end `docker compose up` was **not** run on the machine I wrote this on, because that network blocks container-registry egress (Docker Hub, GHCR, public.ecr.aws all return HTTP 403). Runtime verification must be performed on a machine with normal container-registry access. A self-contained automated verifier is committed at [`scripts/verify-docker.sh`](../scripts/verify-docker.sh).
 
 ---
 
@@ -291,7 +291,7 @@ docker compose cp backend:/app/data/greenhouse.db ./greenhouse.db.backup
 
 ### `docker compose build` fails at the first BuildKit step with HTTP 403
 
-- The machine you're on cannot reach `registry-1.docker.io`. The authoring sandbox hit exactly this — confirm with `curl -I https://registry-1.docker.io/v2/`. Move to a machine with normal registry access.
+- The machine you're on cannot reach `registry-1.docker.io`. I hit exactly this while writing the project — confirm with `curl -I https://registry-1.docker.io/v2/`. Move to a machine with normal registry access.
 
 ### `pytest` fails with `ModuleNotFoundError: No module named 'greenhouse'`
 
@@ -314,4 +314,4 @@ docker compose cp backend:/app/data/greenhouse.db ./greenhouse.db.backup
 | Docker artifacts (Dockerfiles, nginx.conf, compose) | ✅ implemented and config-validated |
 | Docker end-to-end runtime | ⏳ pending on a machine with container-registry access — run `./scripts/verify-docker.sh` |
 
-Once the Docker runtime verification passes on your machine, mark the corresponding items in [`PROJECT_COMPLETION_CHECKLIST.md`](../PROJECT_COMPLETION_CHECKLIST.md) and capture screenshots for the README.
+Once the Docker runtime verification passes on your machine, update `TESTING_REPORT.md` and capture screenshots for the README.

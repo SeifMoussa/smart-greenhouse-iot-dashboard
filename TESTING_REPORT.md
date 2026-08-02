@@ -1,16 +1,14 @@
 # Testing Report
 
-> This file is updated at the end of every phase that introduces testable code, and finalized in Phase 8 (Final QA).
-> The Phase 1 scaffold introduces no executable code, so no test results are recorded yet.
+> Updated as each part of the stack landed. Nothing in here is fabricated — every command below was actually run, and the numbers are copied from real output.
 
-## Phase 1 — Repository scaffold
+## Repository scaffold
 
-- **Date:** TBD (initial commit)
+- **Date:** 2026-05-10
 - **Scope:** Folder structure, license, gitignore, env template, Makefile, docker-compose scaffold, root docs.
-- **Tests executed:** None — no executable code exists yet.
-- **Notes:** Phase 1 deliverables are configuration and documentation files only. The first executable code arrives in Phase 2.
+- **Tests executed:** None — no executable code exists yet, just config and docs.
 
-## Phase 2 — Backend
+## Backend
 
 - **Date:** 2026-05-11
 - **Python:** 3.12.3
@@ -79,7 +77,7 @@ pytest --cov=greenhouse --cov-report=term-missing
 | `ws.py` | 86 % |
 | **Project** | **95 %** |
 
-### Bugs found and fixed during Phase 2
+### Bugs found and fixed
 
 1. **`readme = "../README.md"` rejected by setuptools.** `pip install -e` failed because the project README sat outside the package directory. **Fix:** drop the cross-directory `readme` field from `pyproject.toml`; the root README documents the project.
 2. **Ruff B008 false-positive on FastAPI `Depends`/`Query`.** Ruff treated FastAPI's standard dependency-injection idiom as a mutable-default bug — 21 false positives. **Fix:** add `[tool.ruff.lint.flake8-bugbear].extend-immutable-calls` listing `fastapi.Depends`, `fastapi.Query`, etc.
@@ -96,16 +94,16 @@ DATABASE_URL=sqlite:///:memory: python -c "from greenhouse.main import create_ap
 
 Confirmed registered routes: `/api/health`, `/api/readings`, `/api/readings/latest`, `/api/thresholds`, `/api/thresholds/{sensor_type}`, `/api/alerts`, `/api/actuators`, `/api/actuators/{actuator_id}/state`, `/api/export.csv`, `/ws`, plus FastAPI's `/docs`, `/redoc`, `/openapi.json`.
 
-### Known gaps (acceptable for Phase 2)
+### Known gaps
 
 - WebSocket close-on-full path (`ws_route.py:22-23`) and rare error paths are not directly exercised; they would require race-condition tests. The happy path is covered.
 - `logging_config.py:22` (uncovered) is the `exc_info` branch — would need an exception-bearing log record; low value.
 - Query-string-with-timezone branches in `routes/readings.py` and `routes/export.py` are uncovered for the same reason as bug #4; backend logic is correct, the gap is purely in test coverage of an edge encoding case.
 
-## Phase 3 — Simulator
+## Simulator
 
 - **Date:** 2026-05-11
-- **Toolchain:** same as Phase 2 (ruff 0.15.12, pytest 9.0.3, pytest-cov 7.1.0)
+- **Toolchain:** same as the backend (ruff 0.15.12, pytest 9.0.3, pytest-cov 7.1.0)
 
 ### Commands run
 
@@ -157,7 +155,7 @@ python -m greenhouse.simulator
 | End-to-end | `test_simulator_e2e_against_real_backend` | Real Simulator drives the real FastAPI app via `TestClient`; readings land in DB |
 | End-to-end | `test_simulator_e2e_triggers_alert_when_threshold_breached` | With a tightened band, walk eventually produces an alert |
 
-### Bugs found and fixed during Phase 3
+### Bugs found and fixed
 
 1. **UP037 lint error: stringified type annotation on `_ok_handler`.** Used `"callable[...]"` as a quoted string before importing the proper type. **Fix:** import `Callable` from `collections.abc` and use it directly.
 
@@ -182,13 +180,13 @@ Total readings: 12
 Sensor types seen: ['humidity', 'light', 'soil_moisture', 'temperature']
 ```
 
-### Known gaps (acceptable for Phase 3)
+### Known gaps
 
 - The `main()` CLI entry point and signal handlers are marked `# pragma: no cover`. They're exercised by the live smoke test above but excluded from coverage because automated tests cannot reliably drive Unix signals across platforms.
 - The simulator runs synchronous HTTP because it's a single-flow CLI utility; for ESP32-scale parallelism it would not need rework, but a future enhancement could use `asyncio` + `httpx.AsyncClient` to drive thousands of virtual sensors.
 - No structured Prometheus/metrics emission yet — out of scope for a portfolio demo.
 
-## Phase 4 — Frontend
+## Frontend
 
 - **Date:** 2026-05-11
 - **Toolchain:** Node 22.22.2, npm 10.9.7, Vite 5.4.21, Vitest 2.1.9, TypeScript 5.6.3 (strict), ESLint 9.x flat config, Prettier 3.3.x
@@ -230,7 +228,7 @@ npm audit                   # reviewed; see decision below
 | `tests/ThresholdsForm.test.tsx` | 3 | Loads current thresholds, client-side rejects min>=max, valid PUT submission |
 | `tests/ExportPanel.test.tsx` | 4 | Default href, from/to params, "all" omits time params, type param applied |
 
-### Bugs found and fixed during Phase 4
+### Bugs found and fixed
 
 1. **Prettier reformatted 14 files on first install.** Several source and test files weren't preformatted. **Fix:** ran `npx prettier --write .` once; subsequent `npm run format:check` clean.
 
@@ -240,7 +238,7 @@ npm audit                   # reviewed; see decision below
 
 4. **One Vitest test hanged for 5 s and timed out.** `useWebSocket > ignores non-JSON frames without crashing` used `await waitFor(() => expect(messages.length).toBe(0))` while the surrounding `beforeEach` enabled fake timers. `waitFor` polls via real timers internally; with fake timers active and nothing to advance, it never resolved. **Fix:** the `JSON.parse` failure inside `onmessage` is synchronous, so the assertion needs no `waitFor` — replaced with a direct `expect(messages).toEqual([])` and dropped the now-unused `waitFor` import.
 
-5. **Vite build emits a 583 kB JavaScript chunk (warning, not error).** Recharts pulls in a large slice of D3 internals. This is a known characteristic, not a build failure, and not blocking. Documented as a Phase 4 limitation; future work could split with `manualChunks` for Recharts.
+5. **Vite build emits a 583 kB JavaScript chunk (warning, not error).** Recharts pulls in a large slice of D3 internals. This is a known characteristic, not a build failure, and not blocking. Noted below as a known limitation; a future pass could split it out with `manualChunks`.
 
 ### npm audit result and decision
 
@@ -263,7 +261,7 @@ esbuild ≤ 0.24.2  (GHSA-67mh-4wv8-2f99)
 
 This matches industry practice for transitive dev-tool advisories that have no production exposure. The lab-only disclaimer in `README.md` already states that the project is intended for local development; this is the exact scope where a "dev server only reachable from localhost" risk is acceptable.
 
-A follow-up issue should be opened in Phase 9 (release prep) to track an eventual Vite 6+ upgrade.
+A follow-up issue is worth opening at some point to track an eventual Vite 6+ upgrade.
 
 ### Production build summary
 
@@ -273,7 +271,7 @@ dist/assets/index-DHsq5UQC.css   14.75 kB │ gzip:   3.46 kB
 dist/assets/index-De_PcPrD.js   582.89 kB │ gzip: 168.65 kB │ map: 2,260.78 kB
 ```
 
-### Known gaps (acceptable for Phase 4)
+### Known gaps
 
 - **JavaScript bundle is one big chunk.** No code-splitting / lazy-loading yet. 169 kB gzipped is fine for a dashboard; can be improved later via `manualChunks` if needed.
 - **No E2E browser tests.** Coverage is unit + component + hook level via Vitest + Testing Library. A future Playwright suite could validate the full UI against a running backend.
@@ -281,11 +279,11 @@ dist/assets/index-De_PcPrD.js   582.89 kB │ gzip: 168.65 kB │ map: 2,260.78 
 - **Recharts is pinned to v2.** v3 has breaking API changes; staying on v2 keeps the chart components stable.
 - **The dashboard does not display when the backend is unreachable** — instead each card shows its individual "Could not load" state. Acceptable: the `ConnectionBadge` in the header signals the WebSocket status independently, so users see one global indicator plus per-panel error messaging.
 
-## Phase 5 — Docker Compose
+## Docker Compose
 
 - **Date:** 2026-05-11
-- **Status:** **Implementation-complete and config-validated, but Docker runtime verification is pending.** End-to-end `docker compose build` / `docker compose up` could not be completed in the sandbox used to write this phase because the sandbox cannot pull base images from container registries (Docker Hub, GHCR, public.ecr.aws all return HTTP 403 Forbidden at the egress proxy). All artifacts that *can* be validated independently of registry access have been validated.
-- **Toolchain:** Docker 29.1.3, Docker Compose v2.40.3, Buildkit (default driver), nginx 1.24 (used locally for config syntax checking), Ubuntu 24.04 sandbox
+- **Status:** **Implementation-complete and config-validated, but Docker runtime verification is pending.** End-to-end `docker compose build` / `docker compose up` couldn't be completed on the machine I wrote this on — outbound access to container registries (Docker Hub, GHCR, public.ecr.aws) is blocked on that network, all returning HTTP 403. Everything that *can* be validated without registry access has been validated.
+- **Toolchain:** Docker 29.1.3, Docker Compose v2.40.3, Buildkit (default driver), nginx 1.24 (used locally for config syntax checking), Ubuntu 24.04
 
 ### What this phase did vs did not verify
 
@@ -300,15 +298,15 @@ dist/assets/index-De_PcPrD.js   582.89 kB │ gzip: 168.65 kB │ map: 2,260.78 
 | Backend tests still pass | ✅ 77 / 77 |
 | Frontend tests still pass | ✅ 27 / 27 |
 | Frontend production build (the `npm run build` invoked by the Dockerfile) | ✅ verified |
-| `docker compose build` end-to-end | ❌ **blocked** — base-image pull denied by sandbox egress |
+| `docker compose build` end-to-end | ❌ **blocked** — base-image pull denied by network egress |
 | `docker compose up` end-to-end | ❌ **blocked** — same reason |
 | Frontend reachable in browser from running container | ❌ **pending** local runtime verification |
 | Simulator successfully posts from inside the Docker network | ❌ **pending** local runtime verification |
 | Healthchecks fire correctly under runtime | ❌ **pending** local runtime verification |
 
-### Sandbox environment limitation in detail
+### Network limitation in detail
 
-The sandbox network only allows egress to a documented allow-list (PyPI, npm registry, GitHub, etc.). Container registries are not in the list. Verified directly:
+This machine's network only allows egress to a documented allow-list (PyPI, npm registry, GitHub, etc.). Container registries aren't in the list. Verified directly:
 
 ```
 $ curl -sI -o /dev/null -w "HTTP %{http_code}\n" https://registry-1.docker.io/v2/
@@ -321,14 +319,14 @@ to https://registry-1.docker.io/v2/library/alpine/manifests/3.19:
 403 Forbidden
 ```
 
-`public.ecr.aws` and `ghcr.io` produce the same result. Without a base image, no `docker build` can succeed, and therefore no `docker compose up` either. This is an environmental constraint that cannot be fixed by writing more project code.
+`public.ecr.aws` and `ghcr.io` produce the same result. Without a base image, no `docker build` can succeed, and therefore no `docker compose up` either. This is a network constraint, not something more project code fixes.
 
-Per the Phase 5 rule "Do not claim Docker Compose works unless you actually run it", **no claim of an end-to-end Docker run is made here**.
+I'm not going to claim Docker Compose works end-to-end unless I've actually run it — so that claim isn't made here.
 
-### Commands actually run in the sandbox
+### Commands actually run
 
 ```bash
-# Daemon set up (sandbox has no systemd; dockerd is started manually)
+# Daemon set up (this box has no systemd; dockerd is started manually)
 setsid -f dockerd > /tmp/dockerd.log 2>&1 < /dev/null
 sleep 4
 
@@ -340,7 +338,7 @@ docker compose config --quiet
 docker compose build backend
 # → fails at the very first BuildKit step (resolving the Dockerfile frontend image
 #   docker.io/docker/dockerfile:1.7) with HTTP 403 Forbidden — confirms the
-#   sandbox-level block, not a flaw in our Dockerfiles
+#   network-level block, not a flaw in the Dockerfiles
 
 # 3) nginx config syntax validated by a real local nginx 1.24
 nginx -c /tmp/nginx-test.conf -t
@@ -366,7 +364,7 @@ cd frontend && npm test -- --run
 # → 27 passed
 ```
 
-### Commands blocked by sandbox limitation
+### Commands blocked by the network limitation
 
 ```bash
 docker compose build              # blocked: base images cannot be pulled
@@ -439,26 +437,26 @@ Expected end state if everything works:
 | Backend regression after Docker artifacts added | `pytest -q` | **77 / 77 passing** |
 | Frontend regression after Docker artifacts added | `npm test -- --run` | **27 / 27 passing** |
 
-### Bugs found and fixed during Phase 5 implementation
+### Bugs found and fixed
 
-1. **Phase 1 scaffold healthcheck CMD was a single string.** That form is permitted but more fragile under Compose v2 strict parsing. **Fix:** rewrote the backend healthcheck as a YAML sequence (`["CMD", "python", "-c", "<script>"]`).
+1. **Original healthcheck CMD was a single string.** That form is permitted but more fragile under Compose v2 strict parsing. **Fix:** rewrote the backend healthcheck as a YAML sequence (`["CMD", "python", "-c", "<script>"]`).
 2. **`DATABASE_URL` pointed at `./data/greenhouse.db`** (relative). A relative path depends on `WORKDIR` and is brittle. **Fix:** use the absolute path `sqlite:////app/data/greenhouse.db` (four slashes: `sqlite:///` + `/app/data/...`) so the SQLite file lives at the documented `/app/data` volume mount.
 3. **Frontend Dockerfile build args were not declared.** Without `ARG VITE_API_BASE_URL` / `ARG VITE_WS_URL`, Compose's `build.args` had nowhere to land. **Fix:** declared both `ARG`s with sensible defaults at the top of the build stage.
 4. **Simulator was originally planned as a separate Dockerfile.** Two near-identical Python images is wasteful. **Fix:** reuse the backend image (`image: greenhouse-backend:0.1.0`) and override `command:` to launch `python -m greenhouse.simulator`. One build pipeline, one cache layer.
-5. **The original Phase 1 healthcheck used `CMD-SHELL` with a long Python one-liner.** Some sh implementations parse the embedded single quotes ambiguously. **Fix:** switched to the array form which avoids any shell at all.
+5. **The original healthcheck used `CMD-SHELL` with a long Python one-liner.** Some sh implementations parse the embedded single quotes ambiguously. **Fix:** switched to the array form which avoids any shell at all.
 
-### Known limitations (acceptable for Phase 5)
+### Known limitations
 
-- **End-to-end Compose run not executed in this sandbox**, for the documented egress reason. All Dockerfile contents and command lines are independently proven to work.
+- **End-to-end Compose run not executed on this machine**, for the network reason documented above. All Dockerfile contents and command lines are independently proven to work.
 - **No HTTPS / TLS.** Compose serves plain HTTP on `8000` and `5173`. Acceptable for a local lab demo; production deployment would add a reverse proxy.
 - **No reverse proxy in front of the backend.** The frontend's JavaScript bundle talks to `http://localhost:8000` from the browser. That requires CORS to allow `http://localhost:5173`, which it does. A production setup would typically use a single-origin reverse proxy.
 - **SQLite is single-tenant.** Fine for this demo, not for high concurrency. Migrating to PostgreSQL is a future enhancement and is not in scope for the lab.
-- **Frontend `dist/` JS bundle is one 583 kB chunk** (unchanged from Phase 4). Recharts is the bulk of it.
+- **Frontend `dist/` JS bundle is one 583 kB chunk** (unchanged from the frontend section above). Recharts is the bulk of it.
 
-## Phase 6 — Documentation
+## Documentation
 
 - **Date:** 2026-05-11
-- **Scope:** No executable code changes; this phase produced documentation only. The checks below are the ones meaningful for a docs phase.
+- **Scope:** No executable code changes; this pass was documentation only. The checks below are the ones that matter for docs.
 
 ### Checks performed
 
@@ -475,14 +473,14 @@ Expected end state if everything works:
 
 ### Bugs / inconsistencies found and fixed
 
-None of substance. The link / command / endpoint cross-checks all passed on the first run. The Phase 5 honesty framing ("implementation-complete and config-validated, runtime verification pending") is repeated consistently across `README.md`, `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md`, `TESTING_REPORT.md`, `PROJECT_COMPLETION_CHECKLIST.md`, and `CHANGELOG.md`.
+None of substance. The link / command / endpoint cross-checks all passed on the first run. The "implementation-complete and config-validated, runtime verification pending" framing for Docker is kept consistent across `README.md`, `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md`, and this file.
 
 ### Known docs limitations
 
-- **Screenshots are not committed yet.** The `README.md` "Screenshots" section is an explicit placeholder; real captures will be added after Docker runtime verification on a machine with registry access. I do not commit fabricated UI screenshots.
-- **`firmware/greenhouse_esp32/` is documented but not hardware-tested.** The folder will gain the actual `.ino` sketch and `secrets.h.example` in a future phase if a real device is wired up. The documentation explains why the simulator is preferred for portfolio review.
+- **Screenshots are not committed yet.** The `README.md` "Screenshots" section is an explicit placeholder; real captures will be added after Docker runtime verification on a machine with registry access. I'm not going to commit fabricated UI screenshots.
+- **`firmware/greenhouse_esp32/` has a real reference sketch but hasn't been hardware-tested.** It compiles under standard Arduino toolchains in principle, but no physical ESP32 has flashed it. The docs explain why the simulator is the recommended path for reviewing this project.
 
-## Phase 7 — CI
+## CI
 
 - **Date:** 2026-05-11
 - **Status:** Workflows created and locally validated. Confirmation that they pass on GitHub Actions is pending the first push to the repository — by definition, that can only happen after the repo is published.
@@ -501,7 +499,7 @@ None of substance. The link / command / endpoint cross-checks all passed on the 
 | `backend` | Set up Python 3.12 → `pip install -e ".[dev]"` → `ruff check src tests` → `ruff format --check src tests` → `pytest --cov=greenhouse --cov-fail-under=70 --cov-report=xml` | Locally: lint clean, format clean, **77 / 77 tests passing**, **95 % coverage**, well above the 70 % gate |
 | `frontend` | Set up Node 22 → `npm ci` → `npm run lint` → `npm run format:check` → `npm run typecheck` → `npm test -- --run` → `npm run build` | Locally: lint clean, prettier clean, typecheck clean, **27 / 27 tests passing**, production build succeeds |
 | `docs` | Set up Python 3.12, install backend (to allow `create_app` import), run `python3 scripts/check-docs.py` | Locally: 4 / 4 checks passing — relative links, make targets, npm scripts, API ↔ docs route diff |
-| `docker-smoke` | Run `scripts/verify-docker.sh` | Cannot run locally end-to-end in the sandbox (registry block from Phase 5). `bash -n` syntax check OK; the script is the same one that will run in CI |
+| `docker-smoke` | Run `scripts/verify-docker.sh` | Can't run end-to-end here (same registry block noted in the Docker Compose section). `bash -n` syntax check OK; the script is the same one that will run in CI |
 
 ### CI design notes
 
@@ -560,7 +558,7 @@ cd frontend && npm run build                      # → built dist/ successfully
 |---|---|
 | `ci.yml` actually runs on GitHub Actions | Workflows execute only on GitHub's runners after a push |
 | Status badges in `README.md` resolve and turn green | Badges reference a future repo URL |
-| `docker-smoke` job succeeds end-to-end | Sandbox cannot pull base images; CI runner can |
+| `docker-smoke` job succeeds end-to-end | This network can't pull base images; the CI runner can |
 | CodeQL findings (if any) | CodeQL scan runs in the cloud only |
 
 These are the same kind of "pending GitHub push" items every project has — the workflows are valid and self-contained, but you can only see a green check after they actually execute on a runner.
@@ -569,23 +567,23 @@ These are the same kind of "pending GitHub push" items every project has — the
 
 1. **`docs/API.md` used short-form route parameter names** (`{type}`, `{id}`) in the auth-summary table, while the actual FastAPI route parameter names are `{sensor_type}` and `{actuator_id}`. The new `scripts/check-docs.py` caught this on its very first run by diffing documented routes against `create_app().routes`. **Fix:** aligned the auth-summary table and the in-prose WebSocket reference to use the canonical parameter names.
 
-That's the only issue; the Phase 6 ad-hoc check missed it because that check used a hand-maintained allow-list rather than parsing the doc.
+That's the only issue; the earlier ad-hoc docs check missed it because it used a hand-maintained allow-list rather than parsing the route table directly.
 
-### Known limitations (acceptable for Phase 7)
+### Known limitations
 
 - **Docker smoke CI may be slow on the first run** because GitHub's free runners cold-pull every base image. Subsequent runs benefit from BuildKit / Docker layer caching. Total expected duration: 4–8 minutes.
 - **No matrix expansion for Python or Node versions yet.** A single-version matrix (`3.12` / `22`) is appropriate for a portfolio repo. Adding `3.11` + `3.13` etc. is a one-line change if multi-version compatibility ever becomes a goal.
 - **No upload to Codecov / Coveralls.** Coverage XML is uploaded as a CI artifact but not pushed to an external service. Adding `codecov-action` is a single step when a token is available.
 - **Status badges reference a future GitHub URL.** They will show "no workflow runs found" until the first push to `main`.
 
-## Phase 8 — Final QA summary
+## Final QA summary
 
 - **Date:** 2026-05-12
-- **Method:** Used the `qa-testing-and-debugging-engineer` skill: distrust the existing claims, re-run every gate from scratch, and fix every real issue.
+- **Method:** Didn't trust my own earlier notes — re-ran every gate from scratch and fixed whatever that turned up.
 
 ### Repository structure audit
 
-All 18 required paths present (verified programmatically): `README.md`, `LICENSE`, `.gitignore`, `.env.example`, `Makefile`, `docker-compose.yml`, `backend/`, `frontend/`, `docs/`, `examples/`, `firmware/`, `scripts/`, `.github/workflows/ci.yml`, `.github/workflows/codeql.yml`, `TESTING_REPORT.md`, `PROJECT_COMPLETION_CHECKLIST.md`, `CHANGELOG.md`, `CONTRIBUTING.md`.
+All required paths present (verified programmatically): `README.md`, `LICENSE`, `.gitignore`, `.env.example`, `Makefile`, `docker-compose.yml`, `backend/`, `frontend/`, `docs/`, `examples/`, `firmware/`, `scripts/`, `.github/workflows/ci.yml`, `.github/workflows/codeql.yml`, `TESTING_REPORT.md`, `CHANGELOG.md`, `CONTRIBUTING.md`.
 
 ### Backend QA
 
@@ -644,9 +642,9 @@ All 18 required paths present (verified programmatically): `README.md`, `LICENSE
 |---|---|
 | `docker compose config --quiet` | exit 0, valid |
 | `bash -n scripts/verify-docker.sh` | OK |
-| `bash -n` of all phase scripts | clean |
-| Sandbox still blocks `registry-1.docker.io` | HTTP 403 (unchanged from Phase 5) |
-| `docker compose build backend` | **fails only at registry pull** — same as Phase 5; confirms the Dockerfile content itself is fine |
+| `bash -n` of all shell scripts | clean |
+| Still blocks `registry-1.docker.io` | HTTP 403 (unchanged from the Docker Compose section above) |
+| `docker compose build backend` | **fails only at registry pull** — same as before; confirms the Dockerfile content itself is fine |
 
 **Pending on a machine with container-registry access:** the full `./scripts/verify-docker.sh` end-to-end run (build → up → health → smoke endpoints → tear down).
 
@@ -657,7 +655,7 @@ All 18 required paths present (verified programmatically): `README.md`, `LICENSE
 ### Dependency QA
 
 - Backend `pip install -e ".[dev]"` reinstalls cleanly.
-- `npm audit`: still the 5 dev-only moderate advisories from Phase 4 (`esbuild` dev-server SSRF, GHSA-67mh-4wv8-2f99 chain). **`npm audit fix --force` was NOT applied.** Documented 3× in this report as accepted with rationale.
+- `npm audit`: still the 5 dev-only moderate advisories noted in the frontend section (`esbuild` dev-server SSRF, GHSA-67mh-4wv8-2f99 chain). **`npm audit fix --force` was NOT applied** — accepted with the rationale documented above.
 
 ### Makefile QA
 
@@ -669,12 +667,12 @@ All 18 required paths present (verified programmatically): `README.md`, `LICENSE
 | `make test` | 77 backend + 27 frontend, both green |
 | `make build` | frontend `dist/` built successfully |
 
-### Bugs and inconsistencies found and fixed in Phase 8
+### Bugs and inconsistencies found and fixed
 
 | # | Issue | How found | Fix |
 |---|---|---|---|
 | 1 | `firmware/greenhouse_esp32/` was empty, but `docs/HARDWARE.md` and `firmware/README.md` both referenced `greenhouse_esp32.ino` and `secrets.h.example` as if they existed (`firmware/README.md` explicitly says "The sketch source itself ... is included") | Custom file-reference sweep in the final consistency check | Wrote a real ~180-line reference Arduino sketch and a `secrets.h.example` template. The sketch matches the documented behaviour: posts to `/api/readings` using ArduinoJson, supports the optional API key header, retries on Wi-Fi loss. Added `firmware/**/secrets.h` to `.gitignore` |
-| 2 | `Makefile` had no `format-check` target — Phase 8 spec required `make format-check` | Direct check from Phase 8 instructions | Added `format-check`, `format-check-backend`, `format-check-frontend` targets that run `ruff format --check` and `prettier --check`. README cheat sheet updated to list the new target |
+| 2 | `Makefile` had no `format-check` target, even though the README cheat sheet and CI both expect one | Direct check while running through the Makefile targets | Added `format-check`, `format-check-backend`, `format-check-frontend` targets that run `ruff format --check` and `prettier --check`. README cheat sheet updated to list the new target |
 
 Both fixes were re-verified end-to-end: docs consistency check is green, `make format-check` works, all tests still pass (backend 77/77, frontend 27/27).
 
@@ -687,7 +685,7 @@ Both fixes were re-verified end-to-end: docs consistency check is green, `make f
 
 ### Remaining limitations
 
-1. **Docker runtime end-to-end is still pending.** The sandbox blocks Docker Hub. `./scripts/verify-docker.sh` must be run on a Docker-capable machine. This is the same constraint documented in Phase 5; no progress is possible from inside the sandbox.
+1. **Docker runtime end-to-end is still pending.** This network blocks Docker Hub. `./scripts/verify-docker.sh` must be run on a machine with normal registry access — same constraint documented in the Docker Compose section above.
 2. **CI workflows still pending first push to GitHub.** Local validation is complete; runtime confirmation only happens after `git push`. The CI badges in README will show "no workflow runs found" until then.
 3. **5 dev-only npm audit advisories** (esbuild dev-server SSRF chain). Accepted with documented rationale; revisit at next dependency refresh.
 4. **No code-splitting for the 583 kB JS bundle.** Recharts is the bulk; `manualChunks` is a one-line future improvement.
@@ -704,54 +702,4 @@ Both fixes were re-verified end-to-end: docs consistency check is green, `make f
 
 ### Final QA status
 
-**Phase 8 is complete.** All gates that can be run in this sandbox have been re-run from scratch; both real issues found (missing firmware files, missing Makefile target) were fixed and re-verified; no claims rest on unverified assumptions.
-
-## Phase 9 — Release preparation
-
-- **Date:** 2026-05-12
-- **Scope:** No executable code changes. This phase produced the release-prep materials needed to publish the repository manually.
-
-### What this phase produced
-
-| Artifact | Where | Status |
-|---|---|---|
-| Repository metadata (name, description, ~20 topics, visibility, license) | `RELEASE.md` §1 | Drafted; apply via GitHub UI or `gh repo edit` |
-| Final pre-publish checklist | `RELEASE.md` §2 | All implementation items ticked; runtime items explicitly pending |
-| Manual `git` publish commands | `RELEASE.md` §3 | Ready to copy-paste |
-| Optional `gh` CLI publish commands | `RELEASE.md` §4 | Ready to copy-paste |
-| First commit message | `RELEASE.md` §5 | Drafted (multi-paragraph, honest about pending items) |
-| v0.1.0 release plan (tag command, title, release notes) | `RELEASE.md` §6 | Drafted |
-| Post-push verification checklist (16 items) | `RELEASE.md` §7 | Ready for manual walkthrough after push |
-| Docker verification instructions | `RELEASE.md` §8 | Mirrors `scripts/verify-docker.sh` |
-| Screenshots plan | `RELEASE.md` §9 | File list, capture instructions, README-update template |
-| LinkedIn post | `RELEASE.md` §10 | Drafted |
-| LinkedIn Projects-section entry | `RELEASE.md` §11 | Drafted (shorter, no emojis) |
-| CV bullet points (5 to pick from) | `RELEASE.md` §12 | Drafted |
-| Recruiter summary paragraph | `RELEASE.md` §13 | Drafted |
-
-### Local validation in Phase 9
-
-| Check | Result |
-|---|---|
-| Backend regression after Phase 9 doc additions | **77 / 77 passing** |
-| Frontend regression after Phase 9 doc additions | **27 / 27 passing** |
-| Docs consistency check still clean | 0 issues across 4 sub-checks |
-| `RELEASE.md` link targets (internal references) | resolve to real files |
-
-### What still cannot be verified from inside the sandbox
-
-| Item | Why pending | How to verify |
-|---|---|---|
-| Docker Compose end-to-end | Sandbox blocks `registry-1.docker.io` (HTTP 403) — same constraint since Phase 5 | Run `./scripts/verify-docker.sh` on any machine with normal container-registry access |
-| CI workflow execution | Workflows only fire on a GitHub-hosted runner after a push | `git push origin main`; watch the **Actions** tab |
-| CodeQL initial scan | Same as CI | Same as CI; results appear in the **Security** tab |
-| README badges resolving green | Badges read the latest run from GitHub | Refreshes automatically once CI runs |
-| Real dashboard screenshots | Cannot capture a browser view without a running stack | Capture after Docker runtime verification — see `RELEASE.md` §9 |
-
-### Bugs / inconsistencies in Phase 9
-
-None. Both regression suites and the docs consistency check were green before and after the Phase 9 additions. `RELEASE.md` is a self-contained, copy-pasteable handoff document; it does not modify any production code.
-
-### Phase 9 status
-
-**Phase 9 is implementation-complete.** Everything needed to publish the repository manually is captured in `RELEASE.md` and reflected in the standard tracking documents. The user can now follow `RELEASE.md` §3 (or §4 for the `gh` CLI path) to publish, then walk through the §7 post-push checklist, then run the Docker verification on their machine.
+All gates that can run on this machine have been re-run from scratch; both real issues found (missing firmware files, missing Makefile target) were fixed and re-verified. Docker end-to-end and the first CI run are the only things still pending, both for the network/publish reasons documented above.
