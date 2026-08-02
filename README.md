@@ -125,7 +125,7 @@ Open <http://localhost:5173>.
 
 ## Quick start — with Docker
 
-> **Status:** Docker support is implemented and config-validated. Runtime verification is pending on a machine with container-registry access (the development sandbox blocks Docker Hub). The full smoke test is automated in [`scripts/verify-docker.sh`](scripts/verify-docker.sh). See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the verification status and the exact commands.
+> **Status:** Docker support is implemented and config-validated. Runtime verification is pending on a machine with container-registry access (my dev machine's network blocks Docker Hub). The full smoke test is automated in [`scripts/verify-docker.sh`](scripts/verify-docker.sh). See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the verification status and the exact commands.
 
 ```bash
 git clone https://github.com/SeifMoussa/smart-greenhouse-iot-dashboard.git
@@ -265,7 +265,6 @@ smart-greenhouse-iot-dashboard/
 ├── LICENSE
 ├── CHANGELOG.md
 ├── TESTING_REPORT.md
-├── PROJECT_COMPLETION_CHECKLIST.md
 └── README.md
 ```
 
@@ -280,8 +279,7 @@ smart-greenhouse-iot-dashboard/
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — database schema and conventions
 - [`firmware/README.md`](firmware/README.md) — firmware notes and simulator-first recommendation
 - [`examples/README.md`](examples/README.md) — copy-pasteable command recipes
-- [`TESTING_REPORT.md`](TESTING_REPORT.md) — per-phase real test results
-- [`PROJECT_COMPLETION_CHECKLIST.md`](PROJECT_COMPLETION_CHECKLIST.md) — phase-by-phase done state
+- [`TESTING_REPORT.md`](TESTING_REPORT.md) — real test results, every command actually run
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — dev setup and contribution guidelines
 - [`CHANGELOG.md`](CHANGELOG.md) — Keep-a-Changelog history
 

@@ -3,7 +3,7 @@
 # Smart Greenhouse — Docker Compose verification script
 # =====================================================================
 # Run this on a machine with Docker Hub access (or any reachable
-# container registry) to verify the Phase 5 stack end to end.
+# container registry) to verify the Compose stack end to end.
 #
 #   ./scripts/verify-docker.sh
 #
