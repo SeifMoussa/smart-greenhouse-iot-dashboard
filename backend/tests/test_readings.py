@@ -43,12 +43,17 @@ def test_ingest_accepts_recent_timestamp(client, sample_reading) -> None:
     assert response.status_code == 201
 
 
-def test_list_readings_returns_newest_first(client, sample_reading) -> None:
+def test_list_readings_requires_auth(client) -> None:
+    response = client.get("/api/readings")
+    assert response.status_code == 401
+
+
+def test_list_readings_returns_newest_first(operator_client, sample_reading) -> None:
     for value in (20.0, 21.0, 22.0):
         sample_reading["value"] = value
-        assert client.post("/api/readings", json=sample_reading).status_code == 201
+        assert operator_client.post("/api/readings", json=sample_reading).status_code == 201
 
-    response = client.get("/api/readings?limit=10")
+    response = operator_client.get("/api/readings?limit=10")
     assert response.status_code == 200
     rows = response.json()
     assert len(rows) == 3
@@ -56,23 +61,23 @@ def test_list_readings_returns_newest_first(client, sample_reading) -> None:
     assert rows[-1]["value"] == 20.0
 
 
-def test_list_readings_type_filter(client) -> None:
-    client.post(
+def test_list_readings_type_filter(operator_client) -> None:
+    operator_client.post(
         "/api/readings",
         json={"sensor_id": "e1", "type": "temperature", "value": 22.0, "unit": "C"},
     )
-    client.post(
+    operator_client.post(
         "/api/readings",
         json={"sensor_id": "e1", "type": "humidity", "value": 50.0, "unit": "%"},
     )
-    response = client.get("/api/readings?type=humidity")
+    response = operator_client.get("/api/readings?type=humidity")
     assert response.status_code == 200
     rows = response.json()
     assert len(rows) == 1
     assert rows[0]["type"] == "humidity"
 
 
-def test_latest_returns_one_per_type(client) -> None:
+def test_latest_returns_one_per_type(operator_client) -> None:
     fixtures = [
         ("temperature", 22.0, "C"),
         ("humidity", 50.0, "%"),
@@ -80,12 +85,12 @@ def test_latest_returns_one_per_type(client) -> None:
         ("light", 800.0, "lux"),
     ]
     for sensor_type, value, unit in fixtures:
-        client.post(
+        operator_client.post(
             "/api/readings",
             json={"sensor_id": "e1", "type": sensor_type, "value": value, "unit": unit},
         )
 
-    response = client.get("/api/readings/latest")
+    response = operator_client.get("/api/readings/latest")
     assert response.status_code == 200
     rows = response.json()
     assert len(rows) == 4
@@ -97,7 +102,7 @@ def test_latest_returns_one_per_type(client) -> None:
     }
 
 
-def test_latest_empty_when_no_data(client) -> None:
-    response = client.get("/api/readings/latest")
+def test_latest_empty_when_no_data(operator_client) -> None:
+    response = operator_client.get("/api/readings/latest")
     assert response.status_code == 200
     assert response.json() == []

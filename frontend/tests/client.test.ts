@@ -1,9 +1,52 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiRequest, buildExportUrl } from "../src/api/client";
+import { ApiError, apiRequest, buildExportUrl, setAuthToken } from "../src/api/client";
 
 describe("apiRequest", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    setAuthToken(null);
+  });
+
+  it("attaches no Authorization header when no token is set", async () => {
+    const fetchMock = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiRequest("/api/readings");
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect((init as RequestInit).headers).not.toHaveProperty("Authorization");
+  });
+
+  it("attaches a Bearer Authorization header once a token is set", async () => {
+    setAuthToken("abc123");
+    const fetchMock = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiRequest("/api/readings");
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect((init as RequestInit).headers).toMatchObject({ Authorization: "Bearer abc123" });
+  });
+
+  it("clears the Authorization header after logout (setAuthToken(null))", async () => {
+    setAuthToken("abc123");
+    setAuthToken(null);
+    const fetchMock = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiRequest("/api/readings");
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    expect((init as RequestInit).headers).not.toHaveProperty("Authorization");
   });
 
   it("parses JSON responses on success", async () => {

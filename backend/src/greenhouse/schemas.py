@@ -124,6 +124,27 @@ class ActuatorOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+
+class LoginIn(BaseModel):
+    """Payload accepted by POST /api/auth/login."""
+
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=255)
+
+
+class TokenOut(BaseModel):
+    """Access token returned on successful login."""
+
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    role: Literal["viewer", "operator"]
+    username: str
+
+
+# ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 

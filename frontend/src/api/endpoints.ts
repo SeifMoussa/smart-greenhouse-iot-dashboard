@@ -5,6 +5,7 @@ import type {
   ActuatorStateValue,
   Alert,
   HealthStatus,
+  LoginResponse,
   Reading,
   SensorType,
   Threshold,
@@ -12,6 +13,12 @@ import type {
 
 export const api = {
   health: (signal?: AbortSignal) => apiRequest<HealthStatus>("/api/health", { signal }),
+
+  login: (username: string, password: string) =>
+    apiRequest<LoginResponse>("/api/auth/login", {
+      method: "POST",
+      body: { username, password },
+    }),
 
   latestReadings: (signal?: AbortSignal) =>
     apiRequest<Reading[]>("/api/readings/latest", { signal }),

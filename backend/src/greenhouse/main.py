@@ -17,13 +17,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from greenhouse import __version__
 from greenhouse.config import Settings, get_settings
-from greenhouse.db import create_engine_for, init_db, make_session_factory
+from greenhouse.db import create_engine_for, init_db, make_session_factory, seed_default_users
 from greenhouse.event_bus import EventBus
 from greenhouse.logging_config import configure_logging
 from greenhouse.rate_limit import TokenBucket
 from greenhouse.routes import (
     actuators,
     alerts,
+    auth,
     export,
     health,
     readings,
@@ -44,11 +45,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     engine = create_engine_for(settings.database_url)
     init_db(engine)
+    seed_default_users(engine, settings)
     session_factory = make_session_factory(engine)
 
     event_bus = EventBus()
     ws_hub = WebSocketHub(max_connections=settings.max_ws_connections)
     rate_limiter = TokenBucket(settings.ingest_rate_limit_per_second)
+    login_rate_limiter = TokenBucket(settings.login_rate_limit_per_second)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -72,6 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.event_bus = event_bus
     app.state.ws_hub = ws_hub
     app.state.rate_limiter = rate_limiter
+    app.state.login_rate_limiter = login_rate_limiter
     app.state.start_time = time.time()
 
     app.add_middleware(
@@ -83,6 +87,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(readings.router)
     app.include_router(thresholds.router)
     app.include_router(alerts.router)

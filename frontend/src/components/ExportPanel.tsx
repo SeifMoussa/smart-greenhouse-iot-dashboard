@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { buildExportUrl } from "../api/client";
+import { ApiError, downloadExportCsv } from "../api/client";
 import { type SensorType, SENSOR_LABELS, SENSOR_TYPES } from "../types/api";
 import { Button } from "./ui/Button";
 import { Card } from "./ui/Card";
@@ -22,16 +22,30 @@ const RANGE_MS: Record<Exclude<Range, "all">, number> = {
 export function ExportPanel() {
   const [range, setRange] = useState<Range>("24h");
   const [sensor, setSensor] = useState<SensorType | "">("");
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState<string | undefined>();
 
-  const url = (() => {
+  function buildParams(): { from?: string; to?: string; type?: string } {
     const params: { from?: string; to?: string; type?: string } = {};
     if (range !== "all") {
       params.from = new Date(Date.now() - RANGE_MS[range]).toISOString();
       params.to = new Date().toISOString();
     }
     if (sensor) params.type = sensor;
-    return buildExportUrl(params);
-  })();
+    return params;
+  }
+
+  async function onDownload() {
+    setError(undefined);
+    setDownloading(true);
+    try {
+      await downloadExportCsv(buildParams());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Download failed.");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <Card title="Export CSV">
@@ -68,22 +82,26 @@ export function ExportPanel() {
           </select>
         </label>
         <div className="flex items-end">
-          <a
-            href={url}
-            data-testid="export-link"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex w-full items-center justify-center"
+          <Button
+            variant="secondary"
+            type="button"
+            data-testid="export-button"
+            loading={downloading}
+            onClick={onDownload}
+            className="w-full"
           >
-            <Button variant="secondary" type="button" className="w-full">
-              Download
-            </Button>
-          </a>
+            Download
+          </Button>
         </div>
       </div>
       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Maximum range is 30 days per export. The download streams from the backend.
       </p>
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
     </Card>
   );
 }

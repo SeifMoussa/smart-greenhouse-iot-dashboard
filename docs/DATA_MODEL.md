@@ -1,6 +1,6 @@
 # Data Model
 
-The backend uses SQLAlchemy 2 ORM with SQLite. Four tables; no foreign keys; tiny by design.
+The backend uses SQLAlchemy 2 ORM with SQLite. Five tables; no foreign keys; tiny by design.
 
 The source of truth for the schema is [`backend/src/greenhouse/models.py`](../backend/src/greenhouse/models.py).
 
@@ -111,6 +111,22 @@ One row per actuator. The complete set is seeded on first start.
 
 ---
 
+### `users`
+
+One row per dashboard account. Two demo accounts (one `operator`, one `viewer`) are seeded on first start from env vars — see `db.py:seed_default_users`.
+
+| Column | Type | Constraints | Index | Notes |
+|---|---|---|---|---|
+| `id` | INTEGER | PK, autoincrement |  | Surrogate identity |
+| `username` | VARCHAR(64) | NOT NULL, UNIQUE | ✓ | Login identifier |
+| `password_hash` | VARCHAR(255) | NOT NULL |  | bcrypt hash, per-password salt embedded in the hash string — never a plaintext password or a separately-stored salt |
+| `role` | VARCHAR(16) | NOT NULL |  | `viewer` or `operator`; enforced at the Pydantic/JWT boundary, not a DB constraint (same pattern as the other literal columns) |
+| `created_at` | DATETIME (naive) | NOT NULL, default `utc_now()` |  |  |
+
+This table isn't queried on every request — login (`POST /api/auth/login`) is the only place it's read, to verify credentials and mint a JWT. Every other protected endpoint verifies the JWT signature only, with no DB round-trip.
+
+---
+
 ## Relationships
 
 There are no foreign keys. The conceptual relationships are:
@@ -120,7 +136,7 @@ readings.type  ──┐
                  ├──▶ thresholds.type  (PK)
 alerts.type    ──┘
 
-(actuator_state stands alone)
+(actuator_state and users stand alone)
 ```
 
 Why no foreign keys?
@@ -143,6 +159,7 @@ Why no foreign keys?
 | `alerts` | implicit | `type` | Future per-type alert filters |
 | `alerts` | implicit | `created_at` | `GET /api/alerts` newest-first |
 | `actuator_state` | PK | `id` | Toggle endpoint |
+| `users` | implicit, unique | `username` | Login lookup in `POST /api/auth/login` |
 
 ---
 

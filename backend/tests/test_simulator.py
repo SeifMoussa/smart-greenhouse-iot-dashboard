@@ -421,7 +421,15 @@ def test_simulator_e2e_against_real_backend(tmp_path) -> None:
         iterations = simulator.run()
         assert iterations == 2
 
-        readings = backend_client.get("/api/readings?limit=100").json()
+        login = backend_client.post(
+            "/api/auth/login",
+            json={
+                "username": backend_settings.seed_operator_username,
+                "password": backend_settings.seed_operator_password,
+            },
+        )
+        auth_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+        readings = backend_client.get("/api/readings?limit=100", headers=auth_headers).json()
         assert len(readings) == 2 * len(SENSOR_SPECS)
         types = {row["type"] for row in readings}
         assert types == {spec.sensor_type for spec in SENSOR_SPECS}
@@ -439,10 +447,20 @@ def test_simulator_e2e_triggers_alert_when_threshold_breached(tmp_path) -> None:
     app = create_app(backend_settings)
 
     with TestClient(app, base_url="http://testserver") as backend_client:
+        login = backend_client.post(
+            "/api/auth/login",
+            json={
+                "username": backend_settings.seed_operator_username,
+                "password": backend_settings.seed_operator_password,
+            },
+        )
+        auth_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
         # Tighten the temperature band so a normal-walk value will breach it.
         response = backend_client.put(
             "/api/thresholds/temperature",
             json={"min_value": 21.0, "max_value": 23.0},
+            headers=auth_headers,
         )
         assert response.status_code == 200
 
@@ -454,7 +472,7 @@ def test_simulator_e2e_triggers_alert_when_threshold_breached(tmp_path) -> None:
         simulator = Simulator(sim_settings, client=backend_client, sleep=_silent_sleep)
         simulator.run()
 
-        alerts = backend_client.get("/api/alerts").json()
+        alerts = backend_client.get("/api/alerts", headers=auth_headers).json()
         # Walk drifts from 22.0 over 20 ticks with step 0.5 → high probability
         # of breach; seed makes the result deterministic.
         assert any(alert["type"] == "temperature" for alert in alerts), (

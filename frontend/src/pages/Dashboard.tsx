@@ -1,3 +1,4 @@
+import { useAuth } from "../auth/AuthContext";
 import { useGreenhouseSocket } from "../hooks/useGreenhouseSocket";
 import { Actuators } from "../components/Actuators";
 import { AlertsPanel } from "../components/AlertsPanel";
@@ -7,9 +8,11 @@ import { HistoryChart } from "../components/HistoryChart";
 import { LiveReadings } from "../components/LiveReadings";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ThresholdsForm } from "../components/ThresholdsForm";
+import { Button } from "../components/ui/Button";
 
 export function Dashboard() {
-  const { status } = useGreenhouseSocket();
+  const { token, username, role, logout } = useAuth();
+  const { status } = useGreenhouseSocket(token ?? "");
 
   return (
     <div className="mx-auto flex min-h-full max-w-7xl flex-col gap-4 p-4 sm:p-6">
@@ -21,8 +24,14 @@ export function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {username} · {role}
+          </span>
           <ConnectionBadge status={status} />
           <ThemeToggle />
+          <Button variant="ghost" onClick={logout}>
+            Sign out
+          </Button>
         </div>
       </header>
 

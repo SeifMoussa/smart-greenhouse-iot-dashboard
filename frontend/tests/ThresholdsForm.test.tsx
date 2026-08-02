@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThresholdsForm } from "../src/components/ThresholdsForm";
-import { renderWithQueryClient } from "./helpers";
+import { renderWithProviders } from "./helpers";
 
 const defaultThresholds = [
   {
@@ -38,7 +38,7 @@ describe("<ThresholdsForm />", () => {
       "fetch",
       vi.fn(async () => jsonResponse(defaultThresholds)),
     );
-    renderWithQueryClient(<ThresholdsForm />);
+    renderWithProviders(<ThresholdsForm />);
     const tempForm = await screen.findByTestId("threshold-form-temperature");
     expect(within(tempForm).getByLabelText(/minimum/i)).toHaveValue(15);
     expect(within(tempForm).getByLabelText(/maximum/i)).toHaveValue(32);
@@ -47,7 +47,7 @@ describe("<ThresholdsForm />", () => {
   it("rejects min >= max client-side without calling the API", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse(defaultThresholds));
     vi.stubGlobal("fetch", fetchMock);
-    renderWithQueryClient(<ThresholdsForm />);
+    renderWithProviders(<ThresholdsForm />);
     const tempForm = await screen.findByTestId("threshold-form-temperature");
 
     const min = within(tempForm).getByLabelText(/minimum/i);
@@ -84,7 +84,7 @@ describe("<ThresholdsForm />", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    renderWithQueryClient(<ThresholdsForm />);
+    renderWithProviders(<ThresholdsForm />);
     const tempForm = await screen.findByTestId("threshold-form-temperature");
 
     const min = within(tempForm).getByLabelText(/minimum/i);
@@ -112,5 +112,23 @@ describe("<ThresholdsForm />", () => {
       min_value: 10,
       max_value: 30,
     });
+  });
+
+  it("disables editing for the viewer role and never calls PUT", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse(defaultThresholds));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWithProviders(<ThresholdsForm />, { role: "viewer" });
+    const tempForm = await screen.findByTestId("threshold-form-temperature");
+
+    expect(within(tempForm).getByLabelText(/minimum/i)).toBeDisabled();
+    expect(within(tempForm).getByLabelText(/maximum/i)).toBeDisabled();
+    expect(within(tempForm).getByRole("button", { name: /save/i })).toBeDisabled();
+    expect(within(tempForm).getByText(/viewers can't change thresholds/i)).toBeInTheDocument();
+
+    const putCalls = fetchMock.mock.calls.filter(
+      ([, init]) => (init as RequestInit | undefined)?.method === "PUT",
+    );
+    expect(putCalls).toHaveLength(0);
   });
 });
