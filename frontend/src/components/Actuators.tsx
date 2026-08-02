@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/endpoints";
 import { type Actuator, type ActuatorId, ACTUATOR_IDS, ACTUATOR_LABELS } from "../types/api";
 import { Button } from "./ui/Button";
@@ -11,6 +12,8 @@ const ACTUATOR_ICONS: Record<ActuatorId, string> = {
 };
 
 function ActuatorRow({ actuator }: { actuator: Actuator }) {
+  const { role } = useAuth();
+  const canControl = role === "operator";
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (next: "on" | "off") => api.setActuatorState(actuator.id, next),
@@ -55,9 +58,11 @@ function ActuatorRow({ actuator }: { actuator: Actuator }) {
       <Button
         variant={isOn ? "danger" : "primary"}
         loading={mutation.isPending}
+        disabled={!canControl}
         onClick={() => mutation.mutate(isOn ? "off" : "on")}
         aria-label={`Turn ${ACTUATOR_LABELS[actuator.id]} ${isOn ? "off" : "on"}`}
         aria-pressed={isOn}
+        title={canControl ? undefined : "Viewers can't control actuators"}
       >
         {isOn ? "Turn off" : "Turn on"}
       </Button>

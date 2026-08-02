@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
+if TYPE_CHECKING:
+    from greenhouse.config import Settings
 
 log = logging.getLogger(__name__)
 
@@ -84,3 +88,30 @@ def _seed_defaults(engine: Engine) -> None:
                 session.add(ActuatorState(id=actuator_id, name=name, state="off"))
         session.commit()
     log.info("database initialized", extra={"ctx_url": str(engine.url)})
+
+
+def seed_default_users(engine: Engine, settings: Settings) -> None:
+    """Insert the demo operator and viewer accounts if they don't already exist.
+
+    Idempotent, same as the threshold/actuator seeding above, so it's safe
+    to call on every start.
+    """
+    from greenhouse import auth
+    from greenhouse.models import User
+
+    factory = make_session_factory(engine)
+    with factory() as session:
+        seeds = [
+            (settings.seed_operator_username, settings.seed_operator_password, "operator"),
+            (settings.seed_viewer_username, settings.seed_viewer_password, "viewer"),
+        ]
+        for username, password, role in seeds:
+            if not session.query(User).filter_by(username=username).first():
+                session.add(
+                    User(
+                        username=username,
+                        password_hash=auth.hash_password(password),
+                        role=role,
+                    )
+                )
+        session.commit()

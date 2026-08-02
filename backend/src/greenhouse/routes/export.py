@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from greenhouse.deps import get_db
+from greenhouse.deps import get_db, require_role
 from greenhouse.models import Reading
 from greenhouse.schemas import SensorType
 
@@ -46,7 +46,7 @@ def _rows_to_csv(rows: Iterable[Reading]) -> Iterable[str]:
         buf.truncate()
 
 
-@router.get("/export.csv")
+@router.get("/export.csv", dependencies=[Depends(require_role("viewer"))])
 async def export_csv(
     from_: datetime | None = Query(default=None, alias="from"),
     to: datetime | None = Query(default=None),

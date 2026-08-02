@@ -19,24 +19,41 @@ The backend exposes a small REST + WebSocket surface. All responses are JSON unl
 - **Severity** (Pydantic `Literal`): `warning`, `critical`.
 - **Actuator states** (Pydantic `Literal`): `on`, `off`.
 
-## API key
+## User auth (JWT)
 
-If the backend has `GREENHOUSE_API_KEY` set to a non-empty string, **write endpoints** require that value in the `X-API-Key` header. Read endpoints remain open even when the key is set, so dashboards and read-only clients don't need credentials.
+Every endpoint except `GET /api/health` and `POST /api/auth/login` requires a signed-in user. There are two roles:
 
-| Endpoint | Requires key when `GREENHOUSE_API_KEY` is set? |
+- **viewer** — can call every `GET` endpoint (readings, thresholds, alerts, actuators, CSV export).
+- **operator** — everything a viewer can do, plus `PUT /api/thresholds/{sensor_type}` and `POST /api/actuators/{actuator_id}/state`.
+
+Log in with `POST /api/auth/login` to get a short-lived JWT, then send it as `Authorization: Bearer <token>` on every other request. Tokens expire after `JWT_EXPIRE_MINUTES` (default 60) and there's no refresh-token flow in this lab build — sign in again once it expires.
+
+Two demo accounts are seeded on first start (`SEED_OPERATOR_USERNAME` / `SEED_OPERATOR_PASSWORD`, `SEED_VIEWER_USERNAME` / `SEED_VIEWER_PASSWORD` in `.env.example`) — change these for anything beyond a local demo.
+
+| Endpoint | Minimum role |
 |---|---|
-| `POST /api/readings` | ✅ |
-| `PUT /api/thresholds/{sensor_type}` | ✅ |
-| `POST /api/actuators/{actuator_id}/state` | ✅ |
-| Everything else | ❌ (always open) |
+| `GET /api/health` | none |
+| `POST /api/auth/login` | none |
+| `GET /api/readings`, `/api/readings/latest`, `/api/thresholds`, `/api/alerts`, `/api/actuators`, `/api/export.csv` | viewer |
+| `PUT /api/thresholds/{sensor_type}` | operator |
+| `POST /api/actuators/{actuator_id}/state` | operator |
+| `WS /ws` | viewer (token passed as `?token=` query param — see [WebSocket](#websocket)) |
 
-When the key is empty (default), all endpoints are open. This is the demo-friendly default; set the env var when running anywhere other than localhost.
+`POST /api/readings` (ingest) is the one exception: it isn't part of the user-auth model at all. It's the endpoint the sensor simulator and ESP32 firmware post to, and neither can do an interactive login — see [API key](#api-key-device-ingest-only) below.
+
+## API key (device ingest only)
+
+If the backend has `GREENHOUSE_API_KEY` set to a non-empty string, `POST /api/readings` requires that value in the `X-API-Key` header. This is separate from the JWT auth above — it's the credential for the sensor simulator and ESP32 firmware, neither of which can do an interactive login.
+
+When the key is empty (default), ingest is open. This is the demo-friendly default; set the env var when running anywhere other than localhost.
 
 ---
 
 ## Rate limiting
 
 `POST /api/readings` is protected by an in-process token bucket. The default capacity / refill rate is `INGEST_RATE_LIMIT_PER_SECOND=50` requests/second/client IP. Exceeding the budget returns `HTTP 429`.
+
+`POST /api/auth/login` has its own, much tighter bucket — `LOGIN_RATE_LIMIT_PER_SECOND=5` requests/second/client IP — to slow down password guessing.
 
 Other endpoints are not rate-limited at the application layer.
 
@@ -67,11 +84,56 @@ curl http://localhost:8000/api/health
 
 ---
 
+### Auth
+
+#### `POST /api/auth/login` — exchange credentials for a JWT
+
+- **Auth:** none
+- **Rate-limited:** yes, tighter bucket than ingest (see [Rate limiting](#rate-limiting))
+- **Request body:**
+
+```json
+{ "username": "operator", "password": "operator123" }
+```
+
+- **Response:** `200 OK`
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "role": "operator",
+  "username": "operator"
+}
+```
+
+- **Errors:**
+  - `401` unknown username or wrong password
+  - `429` rate limit exceeded
+
+```bash
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"operator","password":"operator123"}'
+```
+
+Use the returned `access_token` on every other request:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"operator","password":"operator123"}' | jq -r .access_token)
+
+curl http://localhost:8000/api/readings -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
 ### Readings
 
 #### `POST /api/readings` — ingest one reading
 
-- **Auth:** API key required when configured
+- **Auth:** API key required when configured (device credential — see [API key](#api-key-device-ingest-only))
 - **Rate-limited:** yes (token bucket)
 - **Request body:**
 
@@ -128,7 +190,7 @@ Query params (all optional):
 | `to` | ISO 8601 | Inclusive upper bound on `timestamp` |
 | `limit` | integer | 1–10 000; default `100` |
 
-- **Auth:** none
+- **Auth:** viewer role required (Bearer token)
 - **Response:** `200 OK`, array of `ReadingOut`, **newest first**:
 
 ```json
@@ -159,7 +221,7 @@ curl 'http://localhost:8000/api/readings' \
 
 Returns up to one reading per sensor type — the most recent one. Used by the dashboard's Live Readings panel.
 
-- **Auth:** none
+- **Auth:** viewer role required (Bearer token)
 - **Response:** `200 OK`, array of `ReadingOut` (possibly empty)
 
 ```bash
@@ -172,7 +234,7 @@ curl http://localhost:8000/api/readings/latest
 
 #### `GET /api/thresholds` — list configured threshold bands
 
-- **Auth:** none
+- **Auth:** viewer role required (Bearer token)
 - **Response:** `200 OK`
 
 ```json
@@ -192,7 +254,7 @@ curl http://localhost:8000/api/thresholds
 
 #### `PUT /api/thresholds/{sensor_type}` — update one threshold band
 
-- **Auth:** API key required when configured
+- **Auth:** operator role required (Bearer token)
 - **Path:** `sensor_type` must be one of the four sensor literals
 - **Request body:**
 
@@ -206,11 +268,13 @@ curl http://localhost:8000/api/thresholds
 - **Validation:** `min_value` must be strictly less than `max_value`.
 - **Response:** `200 OK` with the updated `ThresholdOut`.
 - **Errors:**
-  - `401` invalid or missing `X-API-Key`
+  - `401` missing, invalid, or expired token
+  - `403` token is valid but the role is `viewer`, not `operator`
   - `422` unknown sensor type or `min ≥ max`
 
 ```bash
 curl -X PUT http://localhost:8000/api/thresholds/temperature \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"min_value":18,"max_value":30}'
 ```
@@ -229,7 +293,7 @@ Query params:
 |---|---|---|
 | `limit` | integer | 1–1 000; default `50` |
 
-- **Auth:** none
+- **Auth:** viewer role required (Bearer token)
 - **Response:** `200 OK`
 
 ```json
@@ -259,7 +323,7 @@ curl 'http://localhost:8000/api/alerts?limit=20'
 
 #### `GET /api/actuators` — list actuators and current state
 
-- **Auth:** none
+- **Auth:** viewer role required (Bearer token)
 - **Response:** `200 OK`
 
 ```json
@@ -271,12 +335,12 @@ curl 'http://localhost:8000/api/alerts?limit=20'
 ```
 
 ```bash
-curl http://localhost:8000/api/actuators
+curl http://localhost:8000/api/actuators -H "Authorization: Bearer $TOKEN"
 ```
 
 #### `POST /api/actuators/{actuator_id}/state` — set actuator state
 
-- **Auth:** API key required when configured
+- **Auth:** operator role required (Bearer token)
 - **Path:** `actuator_id` is one of `fan`, `pump`, `light`
 - **Request body:**
 
@@ -286,12 +350,14 @@ curl http://localhost:8000/api/actuators
 
 - **Response:** `200 OK` with the updated `ActuatorOut`. The change is also broadcast over WebSocket as an `actuator` event.
 - **Errors:**
-  - `401` invalid or missing `X-API-Key`
+  - `401` missing, invalid, or expired token
+  - `403` token is valid but the role is `viewer`, not `operator`
   - `404` actuator not found in DB (should not happen with default seeding)
   - `422` unknown `actuator_id` or invalid `state`
 
 ```bash
 curl -X POST http://localhost:8000/api/actuators/fan/state \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"state":"on"}'
 ```
@@ -310,16 +376,18 @@ Query params:
 | `to` | ISO 8601 | Inclusive upper bound |
 | `type` | sensor type | Filter to a single sensor type |
 
-- **Auth:** none
+- **Auth:** viewer role required (Bearer token). The dashboard fetches this with the Authorization header attached and saves the response as a blob — it can't use a plain download link, since browsers don't attach custom headers to a normal navigation.
 - **Constraints:** if both `from` and `to` are provided, their range must not exceed **30 days**.
 - **Response:** `200 OK`, `Content-Type: text/csv`, `Content-Disposition: attachment; filename="greenhouse-readings-<UTC-stamp>.csv"`
 - **CSV header:** `id,sensor_id,type,value,unit,timestamp`
 - **Errors:**
   - `400` time range exceeds 30 days
+  - `401` missing, invalid, or expired token
 
 ```bash
 # Download last 24 hours as CSV
 curl -OJ 'http://localhost:8000/api/export.csv' \
+  -H "Authorization: Bearer $TOKEN" \
   --data-urlencode "from=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
   --data-urlencode "to=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -G
 ```
@@ -332,8 +400,8 @@ curl -OJ 'http://localhost:8000/api/export.csv' \
 
 Connect to receive a live stream of events. There are no client commands — the server only pushes.
 
-- **URL:** `ws://localhost:8000/ws` (or `wss://` when behind TLS)
-- **Auth:** none today; the slot-count limit applies regardless
+- **URL:** `ws://localhost:8000/ws?token=<access_token>` (or `wss://` when behind TLS)
+- **Auth:** viewer role required. Browsers can't attach custom headers to a WebSocket handshake, so the JWT travels as a `token` query parameter instead of a `Bearer` header — it's verified the same way. A missing or invalid token closes the connection with code `1008` (policy violation) before it's accepted.
 - **Slot limit:** `MAX_WS_CONNECTIONS` (default `100`). When the limit is reached, new connections are rejected before the upgrade with code `1013`.
 - **Format:** one JSON object per server-sent frame, with `{"type": <event>, "data": <object>}` shape.
 
@@ -368,21 +436,26 @@ The frontend uses [`useWebSocket`](../frontend/src/hooks/useWebSocket.ts) for th
 After `make dev-backend` (or once Docker is up):
 
 ```bash
-# Health
+# Health (no auth needed)
 curl -s http://localhost:8000/api/health | jq
 
-# Defaults seeded?
-curl -s http://localhost:8000/api/thresholds | jq
-curl -s http://localhost:8000/api/actuators | jq
+# Sign in as the seeded operator account and grab the token
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"operator","password":"operator123"}' | jq -r .access_token)
 
-# Ingest one reading
+# Defaults seeded?
+curl -s http://localhost:8000/api/thresholds -H "Authorization: Bearer $TOKEN" | jq
+curl -s http://localhost:8000/api/actuators -H "Authorization: Bearer $TOKEN" | jq
+
+# Ingest one reading (device credential, not the JWT above)
 curl -s -X POST http://localhost:8000/api/readings \
   -H "Content-Type: application/json" \
   -d '{"sensor_id":"manual-1","type":"temperature","value":22.0,"unit":"C"}' | jq
 
 # Latest per sensor type
-curl -s http://localhost:8000/api/readings/latest | jq
+curl -s http://localhost:8000/api/readings/latest -H "Authorization: Bearer $TOKEN" | jq
 
 # Live stream (requires websocat or wscat)
-websocat ws://localhost:8000/ws
+websocat "ws://localhost:8000/ws?token=$TOKEN"
 ```

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from greenhouse.deps import get_db, get_event_bus, require_api_key
+from greenhouse.deps import get_db, get_event_bus, require_role
 from greenhouse.event_bus import EventBus
 from greenhouse.models import ActuatorState
 from greenhouse.schemas import ActuatorId, ActuatorIn, ActuatorOut
@@ -14,7 +14,7 @@ from greenhouse.schemas import ActuatorId, ActuatorIn, ActuatorOut
 router = APIRouter(prefix="/api/actuators", tags=["actuators"])
 
 
-@router.get("", response_model=list[ActuatorOut])
+@router.get("", response_model=list[ActuatorOut], dependencies=[Depends(require_role("viewer"))])
 async def list_actuators(db: Session = Depends(get_db)) -> list[ActuatorOut]:
     """Return every configured actuator and its current state."""
     rows = db.execute(select(ActuatorState).order_by(ActuatorState.id)).scalars().all()
@@ -24,7 +24,7 @@ async def list_actuators(db: Session = Depends(get_db)) -> list[ActuatorOut]:
 @router.post(
     "/{actuator_id}/state",
     response_model=ActuatorOut,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_role("operator"))],
 )
 async def set_actuator(
     actuator_id: ActuatorId,

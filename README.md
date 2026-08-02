@@ -10,8 +10,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev/)
-[![Tests: backend](https://img.shields.io/badge/backend-77%2F77%20passing-brightgreen.svg)](TESTING_REPORT.md)
-[![Tests: frontend](https://img.shields.io/badge/frontend-27%2F27%20passing-brightgreen.svg)](TESTING_REPORT.md)
+[![Tests: backend](https://img.shields.io/badge/backend-109%2F109%20passing-brightgreen.svg)](TESTING_REPORT.md)
+[![Tests: frontend](https://img.shields.io/badge/frontend-37%2F37%20passing-brightgreen.svg)](TESTING_REPORT.md)
 
 ---
 
@@ -29,17 +29,18 @@ The WebSocket path had more edge cases than the REST endpoints. Readings, alerts
 
 This repository is an end-to-end IoT system built end-to-end by one engineer. It exercises a recruiter-relevant slice of full-stack and cybersecurity-adjacent skills:
 
-- **Backend engineering** — FastAPI, SQLAlchemy 2 ORM, Pydantic v2 schemas, WebSocket broadcasting, structured JSON logging, optional API-key auth, ingest rate limiting, async pub/sub event bus.
-- **Frontend engineering** — React 18 + Vite + TypeScript (strict), Tailwind CSS, TanStack Query, Recharts, custom WebSocket hook with exponential-backoff reconnect.
-- **Testing discipline** — 77 backend pytest tests at 95 % coverage, 27 frontend Vitest tests. Every test in this repo was actually run; nothing in the testing report is fabricated.
+- **Backend engineering** — FastAPI, SQLAlchemy 2 ORM, Pydantic v2 schemas, WebSocket broadcasting, structured JSON logging, JWT auth with viewer/operator roles, a separate device API key for sensor ingest, ingest and login rate limiting, async pub/sub event bus.
+- **Frontend engineering** — React 18 + Vite + TypeScript (strict), Tailwind CSS, TanStack Query, Recharts, custom WebSocket hook with exponential-backoff reconnect, in-memory (not localStorage) auth token handling.
+- **Testing discipline** — backend pytest and frontend Vitest suites, both covering the role-enforcement boundary (viewer blocked from writes, operator allowed) in addition to the feature logic. Every test in this repo was actually run; nothing in the testing report is fabricated.
 - **DevSecOps** — Docker Compose three-service stack, multi-stage Dockerfiles, non-root containers, healthchecks, environment-driven configuration, secret-free defaults.
-- **Cybersecurity awareness** — CORS hardened, ingest rate limited, parameterized queries, optional API-key gating on writes, sanitized download filenames, lab-only disclaimer, npm-audit advisory triaged with documented rationale.
+- **Cybersecurity awareness** — CORS hardened, ingest and login rate limited, parameterized queries, bcrypt password hashing, short-lived JWTs kept out of browser storage, role-based access control on every write endpoint, sanitized download filenames, lab-only disclaimer, npm-audit advisory triaged with documented rationale.
 - **Engineering process** — development follows written specifications, with CI-grade quality checks (lint, format, typecheck, tests, build) run before work is declared complete.
 
 ---
 
 ## Features
 
+- **User accounts with viewer/operator roles** — sign in with a username and password; viewers can see everything but can't change thresholds or actuators, operators can do both.
 - **Live readings** for temperature, humidity, soil moisture, and light — value, unit, last-updated relative time, and an up / down / flat trend indicator per tile.
 - **Historical chart** with 1 h / 24 h / 7 d range selector built on Recharts.
 - **Alerts panel** with severity-coded entries (warning / critical) updated live via WebSocket.
@@ -119,7 +120,7 @@ make dev-simulator
 make dev-frontend
 ```
 
-Open <http://localhost:5173>.
+Open <http://localhost:5173> and sign in with one of the seeded demo accounts (from `.env.example`): `operator` / `operator123` for full control, or `viewer` / `viewer123` for read-only access. Change these before running anywhere but a local demo.
 
 ---
 
@@ -133,7 +134,7 @@ cd smart-greenhouse-iot-dashboard
 docker compose up --build
 ```
 
-Then open <http://localhost:5173>. To verify end-to-end with one command:
+Then open <http://localhost:5173> and sign in with the seeded `operator` / `operator123` or `viewer` / `viewer123` account. To verify end-to-end with one command:
 
 ```bash
 ./scripts/verify-docker.sh
@@ -240,7 +241,7 @@ smart-greenhouse-iot-dashboard/
 │   │   ├── deps.py             FastAPI dependency providers
 │   │   ├── main.py             create_app() factory
 │   │   └── simulator.py        Synthetic sensor simulator CLI
-│   ├── tests/                  77 pytest tests, 95 % coverage
+│   ├── tests/                  109 pytest tests, 96 % coverage
 │   ├── pyproject.toml          Deps + ruff + pytest config
 │   └── Dockerfile              Multi-stage, non-root, healthcheck
 ├── frontend/                   React + Vite + TS dashboard
@@ -251,7 +252,7 @@ smart-greenhouse-iot-dashboard/
 │   │   ├── pages/Dashboard.tsx Composed view
 │   │   ├── types/api.ts        Schemas mirrored from backend
 │   │   └── main.tsx, App.tsx, index.css
-│   ├── tests/                  27 Vitest tests
+│   ├── tests/                  37 Vitest tests
 │   ├── package.json
 │   ├── Dockerfile              Multi-stage Node → nginx alpine
 │   └── nginx.conf              SPA fallback, cache, /healthz
@@ -294,6 +295,7 @@ smart-greenhouse-iot-dashboard/
 - **Frontend bundle is one 583 kB chunk.** Recharts is the bulk of it; `manualChunks` splitting is a future improvement.
 - **Frontend dependency advisories.** `npm audit` reports findings in the development toolchain; they need compatibility review rather than an automatic force-upgrade.
 - **No E2E browser tests yet.** Coverage is unit + component + hook level on the frontend.
+- **No refresh-token flow.** JWTs expire after 60 minutes and a page refresh always signs you out, since the token lives in memory rather than any browser storage. Both are deliberate tradeoffs for this scope, documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
@@ -347,6 +349,6 @@ This repository is a complete, runnable engineering artifact rather than a tutor
 What it shows about the way I work:
 - I write requirements before code.
 - I write tests alongside features and refuse to declare something "done" without running the tests.
-- I keep cybersecurity considerations on the same level as feature work (CORS, rate limiting, API-key gating, secret-free defaults, audit triage).
+- I keep cybersecurity considerations on the same level as feature work (CORS, rate limiting, role-based access control, password hashing, secret-free defaults, audit triage).
 - I write honest documentation: the Docker section explicitly notes runtime verification is pending rather than fabricating screenshots.
-- I leave a clean engineering trail (changelog, completion checklist, per-phase testing report) so a code reviewer can audit the project without needing to talk to me first.
+- I leave a clean engineering trail (changelog, testing report) so a code reviewer can audit the project without needing to talk to me first.

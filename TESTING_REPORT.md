@@ -703,3 +703,54 @@ Both fixes were re-verified end-to-end: docs consistency check is green, `make f
 ### Final QA status
 
 All gates that can run on this machine have been re-run from scratch; both real issues found (missing firmware files, missing Makefile target) were fixed and re-verified. Docker end-to-end and the first CI run are the only things still pending, both for the network/publish reasons documented above.
+
+## User auth (JWT)
+
+- **Date:** 2026-08-02
+- **Scope:** Replaced the single shared API key with per-user JWT auth and viewer/operator roles on every endpoint except `/api/health` and the login route itself. The device API key stays, narrowed to just `POST /api/readings`.
+- **Toolchain:** same as before, plus `bcrypt` and `PyJWT` on the backend.
+
+### Commands run
+
+```bash
+cd backend
+ruff check src tests
+ruff format --check src tests
+pytest --cov=greenhouse --cov-report=term-missing
+
+cd ../frontend
+npm run lint
+npm run typecheck
+npm test -- --run
+npm run build
+
+python3 scripts/check-docs.py
+```
+
+### Results
+
+| Gate | Result |
+|---|---|
+| Backend `ruff check` / `ruff format --check` | clean |
+| Backend `pytest` | **109 passed** (32 new: login, JWT decode failures, per-endpoint role enforcement, login rate limiting) |
+| Backend coverage | **96 %** (812 stmts, 33 missed) |
+| Frontend `npm run lint` | clean |
+| Frontend `npm run typecheck` | clean |
+| Frontend `npm test -- --run` | **37 passed** (10 new: AuthContext, LoginForm, viewer-role gating on ThresholdsForm, export download with the auth header) |
+| Frontend `npm run build` | built successfully |
+| `scripts/check-docs.py` | 0 issues across all 4 sub-checks, including the new `POST /api/auth/login` route |
+
+### New test coverage proving role enforcement
+
+`backend/tests/test_roles.py` is dedicated to the actual security boundary this change introduces: every read endpoint rejects unauthenticated calls (`401`) and accepts both viewer and operator tokens (`200`); every write endpoint (`PUT /api/thresholds/{type}`, `POST /api/actuators/{id}/state`) rejects a viewer token (`403`) and accepts an operator token (`200`). `backend/tests/test_auth.py` covers login itself (right/wrong password, unknown user, rate limiting, malformed/garbage tokens). On the frontend, `ThresholdsForm.test.tsx` has a dedicated case asserting the form is disabled end-to-end for a viewer and never issues a `PUT`.
+
+### Bugs found and fixed
+
+1. **Default JWT secret and the test secret were both under bcrypt/PyJWT's recommended 32-byte minimum for HS256**, which PyJWT itself warned about (`InsecureKeyLengthWarning`) the first time the suite ran. **Fix:** lengthened both to 40+ characters.
+2. **The CSV export link couldn't carry a Bearer token as a plain `<a href>`** once `/api/export.csv` required auth — browsers don't attach custom headers to a normal navigation. **Fix:** switched the frontend to fetch the file with the header attached and hand the browser a blob URL to save, reading the filename from `Content-Disposition`.
+3. **Browsers can't set custom headers on a WebSocket handshake either.** **Fix:** the JWT travels as a `?token=` query parameter on the `/ws` connection instead, verified with the same decode path as the Bearer header everywhere else.
+
+### Known limitations
+
+- No refresh-token flow — a 401 after the 60-minute expiry means signing in again. Acceptable for a lab; documented in `docs/ARCHITECTURE.md`.
+- The two demo accounts (`operator`/`viewer`) are reseeded from `.env.example` defaults on first start; there's no admin UI to create additional accounts or change passwords yet.

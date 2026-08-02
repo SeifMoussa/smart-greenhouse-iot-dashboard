@@ -10,7 +10,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from greenhouse import thresholds as threshold_eval
-from greenhouse.deps import get_db, get_event_bus, rate_limit_ingest, require_api_key
+from greenhouse.deps import get_db, get_event_bus, rate_limit_ingest, require_api_key, require_role
 from greenhouse.event_bus import EventBus
 from greenhouse.models import Alert, Reading, Threshold, utc_now
 from greenhouse.schemas import AlertOut, ReadingIn, ReadingOut, SensorType
@@ -71,7 +71,11 @@ async def ingest(
     return reading_out
 
 
-@router.get("", response_model=list[ReadingOut])
+@router.get(
+    "",
+    response_model=list[ReadingOut],
+    dependencies=[Depends(require_role("viewer"))],
+)
 async def list_readings(
     sensor_type: SensorType | None = Query(default=None, alias="type"),
     from_: datetime | None = Query(default=None, alias="from"),
@@ -94,7 +98,11 @@ async def list_readings(
     return [ReadingOut.model_validate(r) for r in rows]
 
 
-@router.get("/latest", response_model=list[ReadingOut])
+@router.get(
+    "/latest",
+    response_model=list[ReadingOut],
+    dependencies=[Depends(require_role("viewer"))],
+)
 async def latest_readings(db: Session = Depends(get_db)) -> list[ReadingOut]:
     """Return the most recent reading for each known sensor type."""
     results: list[ReadingOut] = []

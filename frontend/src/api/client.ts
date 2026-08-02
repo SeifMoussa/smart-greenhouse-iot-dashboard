@@ -11,6 +11,18 @@ function getApiBaseUrl(): string {
   return url && url.length > 0 ? url : FALLBACK_API;
 }
 
+// Held in memory only — never localStorage/sessionStorage, so it can't be
+// read by an XSS payload that outlives the page, and it's gone on refresh.
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -34,6 +46,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const url = `${base}${path}`;
   const headers: Record<string, string> = {
     Accept: "application/json",
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...(options.headers ?? {}),
   };
   let body: BodyInit | undefined;
@@ -82,4 +95,39 @@ export function buildExportUrl(params: { from?: string; to?: string; type?: stri
   if (params.type) search.set("type", params.type);
   const qs = search.toString();
   return `${base}/api/export.csv${qs ? `?${qs}` : ""}`;
+}
+
+/**
+ * Download the CSV export with the auth header attached.
+ *
+ * This can't be a plain `<a href>` anymore now that the endpoint requires
+ * a Bearer token — browsers don't attach custom headers to a normal
+ * navigation, so instead we fetch it, then hand the browser a blob URL
+ * to save. Filename is read from the server's Content-Disposition header.
+ */
+export async function downloadExportCsv(params: {
+  from?: string;
+  to?: string;
+  type?: string;
+}): Promise<void> {
+  const url = buildExportUrl(params);
+  const headers: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    throw new ApiError(response.status, `Export failed: ${response.status}`);
+  }
+
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const match = /filename="?([^"]+)"?/.exec(disposition);
+  const filename = match?.[1] ?? "greenhouse-readings.csv";
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
 }

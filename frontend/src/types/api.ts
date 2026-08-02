@@ -61,6 +61,15 @@ export interface HealthStatus {
   uptime_seconds: number;
 }
 
+export type Role = "viewer" | "operator";
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: "bearer";
+  role: Role;
+  username: string;
+}
+
 /* WebSocket event envelopes */
 
 export interface ReadingEvent {

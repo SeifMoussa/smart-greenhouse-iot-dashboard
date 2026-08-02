@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/endpoints";
 import {
   type SensorType,
@@ -41,6 +42,8 @@ function ThresholdRow({
   initialMin: number;
   initialMax: number;
 }) {
+  const { role } = useAuth();
+  const canEdit = role === "operator";
   const queryClient = useQueryClient();
   const [state, setState] = useState<FormState>({
     min: String(initialMin),
@@ -68,6 +71,7 @@ function ThresholdRow({
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!canEdit) return;
     const validation = validateThreshold(state.min, state.max);
     if (typeof validation === "string") {
       setState((s) => ({ ...s, error: validation, feedback: undefined }));
@@ -97,10 +101,11 @@ function ThresholdRow({
         <input
           type="number"
           step="any"
+          disabled={!canEdit}
           aria-label={`Minimum ${SENSOR_LABELS[sensorType]}`}
           value={state.min}
           onChange={(e) => setState((s) => ({ ...s, min: e.target.value, error: undefined }))}
-          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
         />
       </label>
       <label className="block text-xs text-slate-600 dark:text-slate-400">
@@ -108,20 +113,27 @@ function ThresholdRow({
         <input
           type="number"
           step="any"
+          disabled={!canEdit}
           aria-label={`Maximum ${SENSOR_LABELS[sensorType]}`}
           value={state.max}
           onChange={(e) => setState((s) => ({ ...s, max: e.target.value, error: undefined }))}
-          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+          className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
         />
       </label>
       <Button
         type="submit"
         variant="primary"
         loading={mutation.isPending}
+        disabled={!canEdit}
         aria-label={`Save threshold for ${SENSOR_LABELS[sensorType]}`}
       >
         Save
       </Button>
+      {!canEdit && (
+        <p className="md:col-span-4 text-xs text-slate-500 dark:text-slate-400">
+          Viewers can't change thresholds.
+        </p>
+      )}
       {state.error && (
         <p role="alert" className="md:col-span-4 text-xs text-red-600 dark:text-red-400">
           {state.error}

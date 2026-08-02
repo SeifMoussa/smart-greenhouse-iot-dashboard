@@ -82,6 +82,8 @@ A typical "ingest one reading" call:
 
 The same endpoint handles ingest whether the caller is the simulator, a real ESP32, or curl. Everything writeable is validated by Pydantic literals, so unknown sensor types are rejected at the schema layer before any persistence runs.
 
+Every other endpoint runs through a different dependency chain: `deps.get_current_user` decodes and verifies the `Authorization: Bearer` JWT (issued by `POST /api/auth/login`), then `deps.require_role("viewer"|"operator")` checks the token's role claim before the route body executes. There's no DB lookup on this path — the signature check is enough — which is why it's a JWT rather than a server-side session. See [API.md](API.md#user-auth-jwt) for the full endpoint-by-role table.
+
 ---
 
 ## 3. WebSocket flow
@@ -183,6 +185,9 @@ Notes:
 | **Same image for backend + simulator** | One Docker build, one set of layers cached, one place to install Python deps | Slightly larger simulator image (it carries FastAPI/uvicorn it doesn't need) |
 | **No reverse proxy in front of backend** | Simpler dev experience; browser talks straight to `:8000` | CORS must be open for the dashboard origin; production would prefer single-origin |
 | **No screenshots committed** | I do not commit fabricated UI captures | Real screenshots wait for Docker runtime verification |
+| **JWT over server-side sessions for user auth** | No session store exists in this stack (no Redis, no sessions table) and the backend is already stateless per-request; a JWT verifies with just the signing secret, no DB lookup. Adding real sessions would mean new infra or flipping CORS to `allow_credentials=True` and reworking it for cookies | Tokens can't be revoked before they expire — mitigated with a short 60-minute default and no refresh-token flow, so the worst case is "logged out sooner," not "can't revoke a compromised token" |
+| **JWT kept out of localStorage/sessionStorage** | An in-memory-only token can't be read by an XSS payload that outlives the page load | A page refresh logs the user out; acceptable for a lab, documented as a known limitation |
+| **`GREENHOUSE_API_KEY` kept separate from user auth** | The sensor simulator and ESP32 firmware POST to `/api/readings` and can't do an interactive login | Two auth mechanisms in one API instead of one — but they gate genuinely different callers (devices vs. humans) |
 
 ---
 
@@ -193,5 +198,5 @@ Notes:
 - Add a reverse-proxy + TLS layer (Caddy or Traefik) for non-localhost deployments
 - Code-split the frontend bundle (`manualChunks` for Recharts)
 - Add Playwright E2E tests against the running Docker stack
-- Move from optional API-key gating to a proper OAuth/JWT system if multi-user becomes a goal
+- Add a refresh-token flow so a signed-in session survives past the 60-minute access-token expiry without re-entering credentials
 - Expose Prometheus-style `/metrics` endpoint for backend + simulator

@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import jwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from greenhouse import auth as auth_module
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -13,7 +16,22 @@ router = APIRouter()
 
 @router.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
-    """Accept a WebSocket, subscribe to events, and forward each event."""
+    """Accept a WebSocket, subscribe to events, and forward each event.
+
+    Browsers can't attach custom headers to a WebSocket handshake, so the
+    JWT access token is passed as a query parameter instead of a bearer
+    header. It's still verified the same way as everywhere else in the API.
+    """
+    settings = ws.app.state.settings
+    token = ws.query_params.get("token", "")
+    try:
+        auth_module.decode_access_token(
+            token, secret_key=settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+        )
+    except jwt.PyJWTError:
+        await ws.close(code=1008)  # policy violation
+        return
+
     hub = ws.app.state.ws_hub
     bus = ws.app.state.event_bus
 

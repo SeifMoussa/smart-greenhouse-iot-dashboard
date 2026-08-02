@@ -66,3 +66,15 @@ class ActuatorState(Base):
     name: Mapped[str] = mapped_column(String(64))
     state: Mapped[str] = mapped_column(String(8))  # "on" | "off"
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
+
+
+class User(Base):
+    """A dashboard account. Role determines read/write access."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(16))  # "viewer" | "operator"
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)

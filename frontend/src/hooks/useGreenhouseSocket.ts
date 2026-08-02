@@ -5,9 +5,12 @@ import type { Actuator, Alert, Reading, WSEvent } from "../types/api";
 
 const FALLBACK_WS = "ws://localhost:8000/ws";
 
-function getWsUrl(): string {
-  const url = import.meta.env.VITE_WS_URL?.trim();
-  return url && url.length > 0 ? url : FALLBACK_WS;
+function getWsUrl(token: string): string {
+  const base = import.meta.env.VITE_WS_URL?.trim() || FALLBACK_WS;
+  // Browsers can't attach custom headers to a WebSocket handshake, so the
+  // token travels as a query parameter instead — verified the same way as
+  // the Bearer header everywhere else in the API.
+  return `${base}?token=${encodeURIComponent(token)}`;
 }
 
 /**
@@ -18,7 +21,7 @@ function getWsUrl(): string {
  *  - `alert` events are prepended to `["alerts"]`.
  *  - `actuator` events update `["actuators"]`.
  */
-export function useGreenhouseSocket(): { status: WSStatus } {
+export function useGreenhouseSocket(token: string): { status: WSStatus } {
   const queryClient = useQueryClient();
 
   const handler = useCallback(
@@ -53,6 +56,6 @@ export function useGreenhouseSocket(): { status: WSStatus } {
     [queryClient],
   );
 
-  const { status } = useWebSocket<WSEvent>(getWsUrl(), { onMessage: handler });
+  const { status } = useWebSocket<WSEvent>(getWsUrl(token), { onMessage: handler });
   return { status };
 }
