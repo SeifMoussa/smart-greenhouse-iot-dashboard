@@ -71,9 +71,7 @@ describe("<ExportPanel />", () => {
   });
 
   it("shows an error message when the download is rejected", async () => {
-    const fetchMock = vi.fn<typeof fetch>(
-      async () => new Response(null, { status: 401 }),
-    );
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 401 }));
     vi.stubGlobal("fetch", fetchMock);
 
     renderWithQueryClient(<ExportPanel />);

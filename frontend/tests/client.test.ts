@@ -9,7 +9,8 @@ describe("apiRequest", () => {
 
   it("attaches no Authorization header when no token is set", async () => {
     const fetchMock = vi.fn<typeof fetch>(
-      async () => new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }),
+      async () =>
+        new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -22,7 +23,8 @@ describe("apiRequest", () => {
   it("attaches a Bearer Authorization header once a token is set", async () => {
     setAuthToken("abc123");
     const fetchMock = vi.fn<typeof fetch>(
-      async () => new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }),
+      async () =>
+        new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -36,7 +38,8 @@ describe("apiRequest", () => {
     setAuthToken("abc123");
     setAuthToken(null);
     const fetchMock = vi.fn<typeof fetch>(
-      async () => new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }),
+      async () =>
+        new Response(JSON.stringify({}), { headers: { "content-type": "application/json" } }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
