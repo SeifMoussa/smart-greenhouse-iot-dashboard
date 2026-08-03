@@ -53,6 +53,30 @@ This repository is an end-to-end IoT system built end-to-end by one engineer. It
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/01-login.png" width="400" alt="Sign-in page">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/02-dashboard-operator.png" width="800" alt="Operator dashboard with live readings, history chart, alerts, actuators, and thresholds">
+</p>
+
+*Operator view — live sensor readings, historical chart, recent alerts, actuator controls, and editable thresholds.*
+
+| Operator (edit access) | Viewer (read-only) |
+|---|---|
+| ![Thresholds, operator](docs/screenshots/03-thresholds-operator.png) | ![Thresholds, viewer](docs/screenshots/04-thresholds-viewer.png) |
+
+*Role-based access control in practice: the same Thresholds panel, rendered for each role. Viewers see live values but can't submit changes — enforced on the backend, not just hidden in the UI.*
+
+<p align="center">
+  <img src="docs/screenshots/05-actuators.png" width="400" alt="Actuator controls">
+</p>
+
+---
+
 ## Tech stack
 
 | Layer | Stack |
